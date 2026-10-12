@@ -1,118 +1,102 @@
 # Giai đoạn 01 — Chuẩn hóa project Python
 
+Trạng thái: **đã hoàn thành**.
+
 ## Mục tiêu
 
-Chuyển các script rời rạc thành package Python có thể import, test và gọi từ command line.
+Chuyển các script rời rạc thành package Python có thể cài và chạy từ terminal.
 
-## Nhiệm vụ tổng quát
+## Đầu vào
 
-- Tạo `pyproject.toml` và môi trường dependency thống nhất.
-- Tạo package `src/ady201`.
-- Tách logic khỏi notebook và script chạy trực tiếp.
-- Chuẩn hóa path, logging, exception và test fixtures.
-- Giữ code cũ cho đến khi module mới chạy tương đương.
+- Các script cũ trong `Code/`.
+- JSON POI trong `RawData/`.
 
 ## Luồng
 
 ```text
-Code/*.py hiện tại
-    ↓ tách hàm dùng lại
-src/ady201/*
-    ↓
-pytest + CLI mẫu
+RawData/*.json
+      ↓ poi.py
+POI hợp lệ
+      ↓
+CSV chuẩn hóa
 ```
 
-## Những thứ cần thay đổi
+## Các bước đã làm
 
-Tạo:
+1. Tạo `pyproject.toml` để cài project bằng `pip install -e .`.
+2. Tạo package `src/ady201`.
+3. Đưa lệnh terminal vào `main.py`.
+4. Tách xử lý POI vào các hàm nhỏ trong `poi.py`.
+5. Dùng `pathlib.Path` thay cho đường dẫn cố định theo máy.
+6. Giữ `network.py` làm điểm bắt đầu cho phần mạng đường.
+
+## Cấu trúc hiện tại
 
 ```text
-pyproject.toml
-src/ady201/__init__.py
-src/ady201/config.py
-src/ady201/context.py
-src/ady201/logging.py
-tests/fixtures/
-tests/test_imports.py
+src/ady201/
+├── __init__.py
+├── __main__.py
+├── main.py
+├── poi.py
+└── network.py
 ```
 
-Loại bỏ dần:
+- `main.py`: nhận lệnh từ terminal.
+- `poi.py`: đọc, làm sạch và lưu POI.
+- `network.py`: khai báo file node và edge sẽ dùng sau.
+- `__init__.py`: đánh dấu package và lưu version.
+- `__main__.py`: cho phép chạy `python -m ady201`.
 
-- `from nt import write`.
-- Đường dẫn tương đối phụ thuộc thư mục chạy.
-- Code thực thi ngay khi import.
-- `print` dùng thay logging.
-- Biến toàn cục cho tọa độ/input/output.
+`__pycache__` và `*.egg-info` là file tự sinh. Không cần đọc, sửa hoặc commit.
 
-Dependency ban đầu cần đánh giá:
+## Cần học trước
 
-```text
-duckdb
-pandas
-geopandas
-pyarrow
-shapely
-pyproj
-pyyaml
-typer
-pytest
-```
-
-Dependency graph/OSM bổ sung ở giai đoạn sau.
-
-## Kiến thức cần học
-
-### Bắt buộc
-
-- Python package và `src` layout.
+- Hàm, tham số và giá trị trả về trong Python.
+- `list`, `dict` và vòng lặp `for`.
 - `pathlib.Path`.
-- `if __name__ == "__main__"`.
-- Type hints và dataclass.
-- Logging và exception cơ bản.
-- Pytest fixture.
+- Type hint và `dataclass` ở mức cơ bản.
+- Ý nghĩa của `if __name__ == "__main__"`.
 
-### Tìm hiểu sâu bên ngoài
+## Tìm hiểu thêm
 
-- `pyproject.toml` dependency management.
-- Editable install: `pip install -e .`.
-- Typer command-line application.
+- Từ khóa: `Python package src layout`.
+- Từ khóa: `pip editable install`.
+- Từ khóa: `Python argparse tutorial`.
 
 ## Phân công
 
 ### Thành
 
-- Refactor hàm normalize POI đầu tiên.
-- Định nghĩa input/output contract cho module POI.
+- Chuẩn hóa hàm xử lý POI.
+- Chốt sáu cột đầu ra của POI.
 
 ### Hiếu
 
-- Tạo module placeholder cho `network`.
-- Kiểm tra cài các package native trên Windows/WSL.
+- Kiểm tra cấu trúc `nodes` và `edges` cần cho mạng đường.
+- Xác nhận project chạy được trên máy khác.
 
 ### Quang
 
-- Tạo cấu trúc package, `pyproject.toml` và test import.
-- Viết README ngắn về cài môi trường.
-
-### Review
-
-- Thành review cấu trúc dữ liệu.
-- Hiếu review dependency OSM/graph.
-- Cả nhóm chạy trên máy của mình.
+- Viết README cài đặt và lệnh chạy.
+- Kiểm tra cấu trúc thư mục và `.gitignore`.
 
 ## Đầu ra
 
-- Package `ady201` import được.
-- `pytest` chạy được.
-- Không còn path ổ `D:`/`G:` trong module mới.
+CSV POI có các cột:
+
+```text
+osm_type,osm_id,lat,lon,amenity,name
+```
 
 ## Hoàn thành khi
 
+Ba thành viên đều chạy được:
+
 ```powershell
 pip install -e .
-pytest
 python -c "import ady201"
+ady201 --help
+ady201 normalize-poi RawData/Anuong_Taichinh_Dichvu.json data/interim/pois.csv
 ```
 
-đều chạy thành công trên máy của ba thành viên.
-
+File `data/interim/pois.csv` phải được tạo mà không cần sửa source code.

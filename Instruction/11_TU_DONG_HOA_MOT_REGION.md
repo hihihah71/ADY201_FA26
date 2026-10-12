@@ -1,120 +1,127 @@
-# Giai đoạn 11 — Tự động hóa một region
+# Giai đoạn 11 — Tự động hóa một khu vực
 
 ## Mục tiêu
 
-Gộp các module thành pipeline một lệnh, có trạng thái, cache và resume.
+Nhập một `region_id` và để Python tự chạy toàn bộ các bước theo đúng thứ tự.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Tạo CLI `run-region`.
-- Xác định dependency giữa steps.
-- Ghi run/step state vào DuckDB.
-- Tạo artifact manifest và cache key.
-- Hỗ trợ `--resume`, `--from-step`, `--to-step`.
-- Tách lỗi validation khỏi lỗi tạm thời.
+- Từng lệnh từ giai đoạn 04 đến 10 chạy độc lập thành công.
+- DuckDB lưu được trạng thái step.
+- Hà Nội đã chạy đủ luồng bằng cách gọi từng lệnh.
 
 ## Luồng
 
 ```text
-CLI + region_id + snapshot_id
-        ↓ create RunContext
-Step dependency runner
-        ↓
-Artifacts + state + logs
-        ↓
-Regional outputs
+region_id + snapshot_id tùy chọn
+              ↓
+      kiểm tra đầu vào
+              ↓
+ chạy lần lượt từng step
+              ↓
+ artifact + trạng thái DuckDB
+              ↓
+       bản đồ và báo cáo
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Viết một hàm Python cho mỗi step.
+2. Tạo danh sách thứ tự step trong `pipeline.py`.
+3. Trước mỗi step, kiểm tra input bắt buộc đã tồn tại.
+4. Sau mỗi step, lưu trạng thái và đường dẫn output vào DuckDB.
+5. Nếu step lỗi, lưu `error_message` rồi dừng khu vực đó.
+6. Với `--resume`, bỏ qua step đã hoàn thành và output vẫn hợp lệ.
+7. Nếu không truyền snapshot, dùng snapshot đang được đánh dấu active.
+8. Thêm `run-region` và `run-status` vào `main.py`.
+
+## File cần tạo hoặc sửa
 
 ```text
-src/ady201/cli.py
 src/ady201/pipeline.py
-src/ady201/storage/artifacts.py
-src/ady201/storage/state.py
-tests/test_pipeline_resume.py
+src/ady201/artifacts.py
+src/ady201/run_state.py
+src/ady201/main.py
 ```
 
-Step list:
+Thứ tự step:
 
 ```text
-validate_environment
-prepare_boundaries
+prepare_boundary
 extract_region_pbf
-build_walking_graph
-build_driving_graph
-generate_hexagons
+build_network
+build_grid
 select_region_pois
-snap_pois
-snap_cells
+snap_pois_and_cells
 calculate_accessibility
 calculate_service_features
 calculate_road_features
 build_feature_matrix
-calculate_indices
-cluster_within_region
-render_outputs
+calculate_scores
+run_clustering
+render_maps_and_report
 ```
 
-Cache key gồm:
+Lệnh mục tiêu:
 
-```text
-step + snapshot + boundary version + region
-+ config hash + code version + input checksums
+```powershell
+ady201 run-region --region hanoi
+ady201 run-region --region danang --snapshot <snapshot_id>
+ady201 run-region --region hanoi --resume
+ady201 run-status --region hanoi
 ```
 
-## Kiến thức cần học
+## Quy tắc
 
-### Bắt buộc
+- `main.py` chỉ nhận tham số; logic pipeline nằm trong `pipeline.py`.
+- Chạy tuần tự trước, chưa chạy song song.
+- Step chạy lại không được tạo duplicate.
+- Chỉ bỏ qua step khi trạng thái completed và output vẫn tồn tại.
+- Không tạo `cli.py`, `context.py` hoặc hệ thống logging riêng.
+- Trạng thái và lỗi nằm trong DuckDB; kết quả cuối có `run_summary.json`.
 
-- CLI command design.
-- Dependency graph đơn giản.
-- Idempotency.
-- Checksum/cache invalidation.
-- Retry/resume.
-- Structured logging.
+## Cần học trước
 
-### Tìm hiểu sâu bên ngoài
+- Gọi hàm theo thứ tự.
+- Exception và `try/except`.
+- Idempotent: chạy lại không làm sai dữ liệu.
+- Checksum và cách xác định output còn hợp lệ.
+- Resume pipeline.
 
-- Typer.
-- Content-addressed artifacts.
-- Workflow engines; chưa cần dùng ngay.
+## Tìm hiểu thêm
+
+- Từ khóa: `Python pipeline steps pattern`.
+- Từ khóa: `idempotent data pipeline`.
+- Từ khóa: `checksum cache invalidation`.
 
 ## Phân công
 
 ### Thành
 
-- Owner DuckDB run/step state và transaction.
-- Đảm bảo SQL tự chạy đúng step.
+- Nối trạng thái step với DuckDB và transaction.
+- Kiểm tra SQL được gọi đúng bước.
 
 ### Hiếu
 
-- Định nghĩa dependency/caching cho graph và accessibility.
-- Tạo failure test tại các step nặng.
+- Chốt dependency giữa graph, snap và accessibility.
+- Mô phỏng lỗi giữa bước nặng rồi kiểm tra `--resume`.
 
 ### Quang
 
-- Owner CLI commands, progress/status và summary report.
-- Viết smoke test end-to-end.
-
-### Review
-
-- Cả nhóm chạy pipeline trên máy riêng.
-- Thành kiểm tra state.
-- Hiếu kiểm tra không rebuild graph sai.
+- Thêm lệnh `run-region`, `run-status` vào `main.py`.
+- Tạo `run_summary.json` dễ đọc.
 
 ## Đầu ra
 
-```powershell
-ady201 run-region --region hanoi --snapshot <id>
-ady201 run-region --region hanoi --snapshot <id> --resume
+```text
+outputs/{snapshot_id}/{region_id}/run_summary.json
 ```
+
+Cùng toàn bộ artifact của các giai đoạn 04 đến 10.
 
 ## Hoàn thành khi
 
-- Hà Nội chạy end-to-end một lệnh.
-- Đà Nẵng chạy chỉ bằng thay `region_id`.
-- Lỗi ở clustering không làm build lại graph khi resume.
-
+- Hà Nội chạy hết bằng một lệnh.
+- Đà Nẵng chạy bằng cách chỉ đổi `region_id`.
+- Lỗi ở clustering không làm graph chạy lại khi dùng `--resume`.
+- Có thể xem step nào completed hoặc failed trong DuckDB.

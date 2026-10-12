@@ -1,113 +1,113 @@
-# Giai đoạn 02 — Config và region registry
+# Giai đoạn 02 — Cấu hình và danh sách khu vực
 
 ## Mục tiêu
 
-Loại bỏ mọi giả định Hà Nội khỏi source code và quản lý tỉnh/thành bằng configuration.
+Cho phép thêm Hà Nội, Đà Nẵng hoặc khu vực khác bằng file JSON, không sửa code Python.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Tạo config chung cho pipeline.
-- Tạo mapping category OSM.
-- Tạo registry region.
-- Tạo `RunContext` truyền vào mọi module.
-- Validate config trước khi xử lý dữ liệu.
+- Giai đoạn 01 đã hoàn thành.
+- Biết đọc `dict` và JSON trong Python.
+
+## Đầu vào
+
+- Tham số chung như tốc độ đi bộ và ngưỡng thời gian.
+- Danh sách nhóm POI.
+- Danh sách tỉnh/thành cần chạy.
 
 ## Luồng
 
 ```text
-project.yaml + categories.yaml + regions.yaml
+project.json + categories.json + regions.json
+                    ↓ settings.py / regions.py
+             dữ liệu đã kiểm tra
                     ↓
-              Config loader
-                    ↓
-               RunContext
-                    ↓
-             Pipeline modules
+              các module phía sau
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Tạo ba file JSON trong `config/`.
+2. Viết hàm đọc JSON trong `settings.py`.
+3. Viết hàm lấy một khu vực theo `region_id` trong `regions.py`.
+4. Kiểm tra các trường bắt buộc và báo lỗi dễ hiểu nếu thiếu.
+5. Thêm lệnh `ady201 list-regions` vào `main.py`.
+6. Thử thêm Đà Nẵng chỉ bằng cách sửa `regions.json`.
+
+## File cần tạo hoặc sửa
 
 ```text
-config/project.yaml
-config/categories.yaml
-config/regions.yaml
-src/ady201/config.py
-src/ady201/context.py
-src/ady201/registry/regions.py
+config/project.json
+config/categories.json
+config/regions.json
+src/ady201/settings.py
+src/ady201/regions.py
+src/ady201/main.py
 ```
 
-`project.yaml` chứa:
+`project.json` lưu:
 
-- Walking speed.
-- Accessibility thresholds.
-- Hex resolution.
-- Extraction buffer.
-- Network types.
-- Main-road types.
-- Runtime settings.
+- Tốc độ đi bộ.
+- Các mốc 5, 10 và 15 phút.
+- Kích thước hexagon.
+- Khoảng buffer khi cắt mạng đường.
 
-`regions.yaml` chứa:
+`categories.json` lưu mapping tag OSM sang nhóm như bệnh viện, trường học và siêu thị.
 
-- `region_id`, slug, tên.
-- Boundary path.
-- OSM relation ID nếu có.
-- Override buffer nếu cần.
-- Trạng thái enabled.
+`regions.json` lưu:
 
-Không để trong source:
+- `region_id` không dấu, ví dụ `hanoi`.
+- Tên hiển thị.
+- Đường dẫn boundary.
+- Trạng thái `enabled`.
 
-- Bounding box Hà Nội.
-- Tên file Hà Nội.
-- CRS hoặc output path cố định.
-- Danh sách amenity viết lặp lại.
+## Quy tắc
 
-## Kiến thức cần học
+- Dùng JSON vì Python đọc được bằng thư viện có sẵn.
+- Không lưu bounding box hoặc tên Hà Nội trong source.
+- Hàm cần khu vực nào thì nhận `region` qua tham số.
+- Chưa cần tạo `context.py` hoặc framework config phức tạp.
 
-### Bắt buộc
+## Cần học trước
 
-- YAML.
-- Dataclass/config validation.
-- Stable ID/slug.
-- Separation of configuration and code.
+- Cấu trúc JSON.
+- `json.load`.
+- Kiểm tra key trong `dict`.
+- Giá trị mặc định và thông báo lỗi.
 
-### Tìm hiểu sâu bên ngoài
+## Tìm hiểu thêm
 
-- Pydantic Settings nếu cần validation mạnh.
-- OSM administrative boundary và `admin_level`.
-- Configuration hash.
+- Từ khóa: `Python read JSON file`.
+- Từ khóa: `configuration versus source code`.
+- Từ khóa: `stable slug identifier`.
 
 ## Phân công
 
 ### Thành
 
-- Thiết kế `categories.yaml`.
-- Định nghĩa mapping tag → category/subcategory.
+- Thiết kế `categories.json`.
+- Chốt mapping OSM tag sang category.
 
 ### Hiếu
 
-- Định nghĩa config cho walking/driving network, buffer và graph.
-- Kiểm tra các tham số bắt buộc của region.
+- Chốt các trường liên quan boundary, buffer và loại mạng đường.
+- Kiểm tra dữ liệu Hà Nội và Đà Nẵng.
 
 ### Quang
 
-- Tạo `regions.yaml`, config loader và validation report.
-- Viết lệnh liệt kê region.
-
-### Review
-
-- Thành review category.
-- Hiếu review boundary/network fields.
-- Quang smoke test Hà Nội và Đà Nẵng.
+- Viết hàm đọc JSON và lệnh `list-regions`.
+- Viết bảng báo trường nào còn thiếu.
 
 ## Đầu ra
 
-- Config parse được thành `RunContext`.
-- Thêm region không cần sửa source.
+- Ba file config dễ đọc.
+- Danh sách khu vực có thể mở rộng.
+- Các module sau không cần hard-code tên tỉnh/thành.
 
 ## Hoàn thành khi
 
-- Test thiếu field bắt buộc phải báo lỗi rõ.
-- Tìm trong `src/` không còn tọa độ bounding box Hà Nội.
-- Tạo được context cho ít nhất Hà Nội và Đà Nẵng.
+```powershell
+ady201 list-regions
+```
 
+hiển thị được Hà Nội và Đà Nẵng, đồng thời thêm một khu vực mới không cần sửa file Python.

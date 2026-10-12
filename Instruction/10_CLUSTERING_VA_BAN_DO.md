@@ -2,113 +2,124 @@
 
 ## Mục tiêu
 
-Phân nhóm khu vực đô thị và trình bày kết quả bằng bản đồ/bảng dễ giải thích.
+Phân nhóm các cell có đặc điểm đô thị giống nhau và trình bày kết quả bằng bản đồ dễ hiểu.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Chuẩn bị feature cho model.
-- Chạy within-region K-Means.
-- Đánh giá số cluster.
-- Profile và đặt tên cluster sau phân tích.
-- Tạo bộ bản đồ thống nhất.
-- Chuẩn bị thiết kế national model riêng.
+- `cell_features.parquet` từ giai đoạn 09.
+- Data dictionary cho toàn bộ feature.
+
+## Khái niệm đơn giản
+
+- **Scaling**: đưa các feature về thang đo gần nhau.
+- **K-Means**: chia các hàng dữ liệu thành `k` nhóm.
+- **Silhouette score**: một chỉ số tham khảo để đánh giá cách chia nhóm.
+- **Cluster profile**: giá trị trung bình của từng feature trong mỗi nhóm.
 
 ## Luồng
 
 ```text
-Raw feature matrix
-    ↓ missing/outlier/scale
-Model features
-    ↓ K-Means k candidates
-Metrics + cluster profiles
-    ↓
-Maps + summary tables
+cell features
+     ↓ xử lý missing + scaling
+model features
+     ↓ K-Means với vài giá trị k
+cluster + profile
+     ↓
+bản đồ + bảng tóm tắt
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Chọn danh sách feature dùng cho clustering trong config.
+2. Xử lý missing theo quy tắc đã ghi rõ.
+3. Scale feature trước khi chạy K-Means.
+4. Chạy một số giá trị `k` nhỏ và lưu metric.
+5. Chọn `k` bằng metric kết hợp với khả năng giải thích.
+6. Tạo cluster profile rồi mới đặt tên nhóm.
+7. Ghép cluster về geometry cell.
+8. Tạo bản đồ HTML và ảnh PNG.
+9. Viết bảng tóm tắt kết quả, không suy diễn quan hệ nhân quả.
+
+## File cần tạo hoặc sửa
 
 ```text
-src/ady201/models/within_region.py
-src/ady201/models/national.py
-src/ady201/visualization/maps.py
-src/ady201/visualization/reports.py
-config/clustering.yaml
+src/ady201/clustering.py
+src/ady201/maps.py
+src/ady201/reports.py
+src/ady201/main.py
+config/clustering.json
+pyproject.toml
 ```
 
-Bản đồ bắt buộc:
+Bản đồ cần có:
 
-- POI density.
-- Service completeness.
-- Accessibility đến nhóm thiết yếu.
-- Road/intersection density.
-- Main-road share.
-- High-service/low-connectivity.
+- Mật độ POI.
+- Mức đầy đủ dịch vụ.
+- Accessibility tới dịch vụ thiết yếu.
+- Mật độ đường và giao lộ.
+- Khu vực dịch vụ cao nhưng kết nối đường thấp.
 - Cluster.
-- Composite index.
+- Các score tổng hợp.
 
-Quy tắc:
+Lệnh mục tiêu:
 
-- Scale trước K-Means.
-- Không đưa ID/tọa độ trực tiếp vào model baseline.
-- Không chọn `k` chỉ dựa vào silhouette.
-- Cluster nội tỉnh không so trực tiếp giữa tỉnh.
-- National model dùng scaler/model chung và có version.
+```powershell
+ady201 build-analysis --region hanoi --snapshot <snapshot_id>
+```
 
-## Kiến thức cần học
+## Quy tắc
 
-### Bắt buộc
+- Không đưa `cell_id`, tên vùng hoặc tọa độ trực tiếp vào K-Means cơ bản.
+- Luôn scale feature trước K-Means.
+- Không chọn `k` chỉ vì silhouette cao nhất.
+- Cluster được huấn luyện riêng trong một tỉnh không so số nhãn trực tiếp với tỉnh khác.
+- Bản đồ phải có title, legend, đơn vị, snapshot và nguồn dữ liệu.
 
-- StandardScaler/RobustScaler.
-- K-Means và silhouette.
-- Cluster profile.
-- Choropleth/hex map.
-- Color scale và legend.
+## Cần học trước
 
-### Tìm hiểu sâu bên ngoài
+- StandardScaler hoặc RobustScaler.
+- K-Means.
+- Silhouette score.
+- Đọc cluster profile.
+- Choropleth/hexagon map.
 
-- PCA dùng để quan sát.
-- Spatial autocorrelation.
-- DBSCAN/HDBSCAN; chỉ phần mở rộng.
-- Folium/GeoPandas explore/Plotly.
+## Tìm hiểu thêm
+
+- Từ khóa: `scikit-learn KMeans StandardScaler`.
+- Từ khóa: `silhouette score interpretation`.
+- Từ khóa: `GeoPandas explore map`.
+- Từ khóa: `PCA visualization`; chỉ dùng để quan sát nếu cần.
 
 ## Phân công
 
 ### Thành
 
-- Review feature definitions và composite score.
-- Kiểm tra cluster summary bằng DuckDB.
+- Kiểm tra feature đầu vào và score tổng hợp.
+- Viết bảng thống kê cluster bằng DuckDB.
 
 ### Hiếu
 
-- Review road/accessibility interpretation.
-- Kiểm tra map route/network.
+- Kiểm tra cách diễn giải feature đường và accessibility.
+- Xác nhận bản đồ không gian khớp graph/boundary.
 
 ### Quang
 
-- Owner scaling, K-Means, profiling, maps và report.
-- Chuẩn hóa template bản đồ.
-
-### Review
-
-- Thành review dữ liệu.
-- Hiếu review ý nghĩa không gian.
-- Quang tích hợp feedback.
+- Chạy scaling, K-Means và tạo cluster profile.
+- Tạo bản đồ và report theo template thống nhất.
 
 ## Đầu ra
 
 ```text
-models/within_region_model.*
-models/model_metadata.json
-maps/*.html
-figures/*.png
-tables/cluster_profile.csv
+data/models/{snapshot_id}/{region_id}/within_region_model.joblib
+data/models/{snapshot_id}/{region_id}/model_metadata.json
+outputs/{snapshot_id}/{region_id}/maps/*.html
+outputs/{snapshot_id}/{region_id}/figures/*.png
+outputs/{snapshot_id}/{region_id}/tables/cluster_profile.csv
 ```
 
 ## Hoàn thành khi
 
-- Cluster có mô tả dựa trên feature.
-- Bản đồ có title, legend, unit, snapshot và nguồn.
-- Kết luận không suy diễn quan hệ nhân quả.
-
+- Mỗi cluster có mô tả dựa trên feature thật.
+- Bản đồ có đầy đủ title, legend và đơn vị.
+- Chạy lại cùng config và random seed cho cùng kết quả.
+- Kết luận chỉ mô tả mối liên hệ, không khẳng định nguyên nhân.

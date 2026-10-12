@@ -1,123 +1,160 @@
-# Tổng quan lộ trình DuckDB
+# Tổng quan lộ trình dự án
 
 ## Mục tiêu cuối
 
-Tạo một pipeline chạy hoàn toàn bằng lệnh, không cần mở pgAdmin hoặc import dữ liệu thủ công:
+Người dùng chỉ cần nhập khu vực cần phân tích:
 
 ```powershell
-ady201 run-region --region hanoi --snapshot <snapshot_id>
-ady201 run-all --snapshot <snapshot_id> --resume
+ady201 run-region --region hanoi
+ady201 run-region --region danang
+ady201 run-all --resume
 ```
 
-Stack chính:
+Python tự đọc dữ liệu, gọi DuckDB, xử lý mạng đường và tạo kết quả. Không cần mở pgAdmin hoặc import dữ liệu thủ công.
 
-- Python: điều phối toàn bộ pipeline.
-- DuckDB: metadata, SQL analytics, quality checks và kết quả tổng hợp.
-- GeoParquet: POI, node, edge, hexagon và feature.
-- GraphML: graph dùng lại cho routing.
-- Osmium + Pyrosm: xử lý `.osm.pbf`.
-- NetworkX/OSMnx: graph, snap và Dijkstra có sẵn.
-- GeoPandas/Shapely/H3: xử lý không gian.
-- scikit-learn: clustering.
+## Cách dùng bộ Instruction
 
-## Luồng tổng thể
+1. Làm lần lượt từ giai đoạn 01 đến 12.
+2. Đọc mục **Cần học trước** của giai đoạn đang làm.
+3. Mỗi người hoàn thành nhiệm vụ của mình rồi đổi phần để review chéo.
+4. Chỉ sang giai đoạn tiếp theo khi tất cả mục **Hoàn thành khi** đã đạt.
+5. Nếu gặp thuật ngữ lạ, dùng các từ khóa trong mục **Tìm hiểu thêm** để tự học.
+
+Không cần học toàn bộ công nghệ ngay từ đầu.
+
+## Python và DuckDB dùng để làm gì
+
+| Công cụ | Trách nhiệm |
+|---|---|
+| Python | Đọc file, gọi từng bước, xử lý bản đồ, graph, Dijkstra và clustering |
+| DuckDB | Chạy SQL, lưu metadata/trạng thái, tổng hợp bảng và kiểm tra dữ liệu |
+| Parquet/GeoParquet | Lưu bảng lớn và dữ liệu có geometry |
+| GraphML | Lưu graph đường để dùng lại |
+
+SQL được Python tự chạy. Người dùng không phải mở công cụ quản trị database.
+
+## Cấu trúc code thống nhất
+
+Giữ module dạng phẳng để dễ tìm:
 
 ```text
-Vietnam PBF snapshot
-        ↓
-Boundary registry
-        ↓
-POI toàn quốc + region PBF
-        ↓
-Walking graph + driving graph
-        ↓
-Hexagon + spatial join
-        ↓
-Snap POI/cell vào graph
-        ↓
-Accessibility + road/service features
-        ↓
-Clustering + composite index + maps
-        ↓
-Run-all toàn quốc + cập nhật snapshot
+src/ady201/
+├── __init__.py
+├── __main__.py
+├── main.py
+├── poi.py
+├── network.py
+├── settings.py
+├── regions.py
+├── database.py
+├── snapshots.py
+├── boundaries.py
+├── road_graph.py
+├── hexagons.py
+├── snap.py
+├── accessibility.py
+├── feature_matrix.py
+├── clustering.py
+├── pipeline.py
+└── batch.py
+```
+
+Không cần tạo đủ các file trên ngay. Mỗi giai đoạn chỉ thêm file mà giai đoạn đó sử dụng.
+
+## Luồng dữ liệu tổng thể
+
+```text
+Vietnam OSM PBF + ranh giới khu vực
+                ↓
+        POI + mạng đường
+                ↓
+       hexagon cho từng vùng
+                ↓
+       snap POI/cell vào đường
+                ↓
+ Dijkstra + đặc trưng dịch vụ/đường
+                ↓
+      chỉ số + clustering
+                ↓
+        bản đồ + báo cáo
 ```
 
 ## Danh sách giai đoạn
 
-| Giai đoạn | Nội dung | Kết quả chính |
+| Giai đoạn | Việc chính | Kết quả |
 |---|---|---|
-| [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa project Python | Package, môi trường, test mẫu |
-| [02](02_CONFIG_VA_REGION_REGISTRY.md) | Config và region registry | Không còn hard-code Hà Nội |
-| [03](03_DUCKDB_VA_RUN_STATE.md) | DuckDB và run state | Database tự khởi tạo từ Python |
-| [04](04_SNAPSHOT_PBF_VA_BOUNDARY.md) | Snapshot PBF và boundary | Dữ liệu đầu vào có version |
-| [05](05_POI_TOAN_QUOC.md) | POI toàn quốc | POI chuẩn hóa một lần/snapshot |
-| [06](06_REGION_PBF_VA_ROAD_GRAPH.md) | Region PBF và graph | Walking/driving graph |
-| [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Hexagon và spatial join | Đơn vị phân tích thống nhất |
-| [08](08_SNAP_VA_ACCESSIBILITY.md) | Snap và accessibility | Thời gian tới dịch vụ gần nhất |
-| [09](09_FEATURES_VA_CHI_SO.md) | Feature và chỉ số | Feature matrix theo cell |
-| [10](10_CLUSTERING_VA_BAN_DO.md) | Clustering và bản đồ | Cluster, heatmap, báo cáo |
-| [11](11_TU_DONG_HOA_MOT_REGION.md) | Tự động hóa một region | `run-region`, cache, resume |
-| [12](12_RUN_ALL_VA_CAP_NHAT.md) | Chạy toàn quốc và cập nhật | `run-all`, national aggregation |
+| [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa project | Package và CLI cơ bản |
+| [02](02_CONFIG_VA_REGION_REGISTRY.md) | Tách tham số khỏi code | Thêm tỉnh/thành không sửa source |
+| [03](03_DUCKDB_VA_RUN_STATE.md) | Tạo DuckDB tự động | Database và trạng thái chạy |
+| [04](04_SNAPSHOT_PBF_VA_BOUNDARY.md) | Quản lý PBF và ranh giới | Input có phiên bản rõ ràng |
+| [05](05_POI_TOAN_QUOC.md) | Chuẩn hóa POI toàn quốc | Một bộ POI dùng chung |
+| [06](06_REGION_PBF_VA_ROAD_GRAPH.md) | Tạo graph đường | Walking/driving graph |
+| [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Tạo ô phân tích | POI được gán vào từng ô |
+| [08](08_SNAP_VA_ACCESSIBILITY.md) | Tính đường đi | Thời gian tới dịch vụ gần nhất |
+| [09](09_FEATURES_VA_CHI_SO.md) | Tạo đặc trưng và chỉ số | Một hàng dữ liệu cho mỗi ô |
+| [10](10_CLUSTERING_VA_BAN_DO.md) | Phân nhóm và trực quan hóa | Cluster, heatmap và báo cáo |
+| [11](11_TU_DONG_HOA_MOT_REGION.md) | Ghép thành một lệnh | `run-region` |
+| [12](12_RUN_ALL_VA_CAP_NHAT.md) | Chạy toàn quốc | `run-all` và cập nhật dữ liệu |
 
-## Kiến thức cả nhóm phải nắm
+## Từ điển ngắn
 
-### Bắt buộc
-
-- Git branch, pull request và code review.
-- Python package, module, virtual environment và logging.
-- OSM `node`, `way`, `relation`, tags và `.osm.pbf`.
-- CRS EPSG:4326, CRS theo mét, point/line/polygon.
-- DuckDB connection, table, view và SQL cơ bản.
-- Parquet/GeoParquet và lý do không dùng CSV cho geometry.
-- Graph: node, edge, directed graph, weight, connected component.
-- Dijkstra, multi-source Dijkstra và unreachable node.
-- Count, density, accessibility và composite index.
-- Scale feature, K-Means và silhouette score.
-
-### Tìm hiểu sâu bên ngoài khi đến giai đoạn tương ứng
-
-- DuckDB spatial extension và Parquet scan.
-- Osmium extract strategies.
-- Pyrosm network types và graph conversion.
-- OSMnx nearest nodes/edges.
-- NetworkX multi-source shortest path.
-- H3 indexing.
-- GeoPandas spatial join/overlay.
-- scikit-learn preprocessing và clustering.
+- **POI**: địa điểm dịch vụ như trường học, bệnh viện, siêu thị.
+- **CLI**: lệnh chạy chương trình từ terminal, ví dụ `ady201 --help`.
+- **DuckDB**: database chạy trực tiếp trong Python và lưu thành một file.
+- **Region**: một khu vực cần phân tích, thường là một tỉnh hoặc thành phố.
+- **PBF**: file OpenStreetMap đã nén, chứa node, way và relation.
+- **Node**: một điểm trong mạng đường.
+- **Edge**: đoạn đường nối hai node.
+- **Graph**: tập hợp node và edge.
+- **Snap**: gán một địa điểm vào node đường gần nhất.
+- **Dijkstra**: thuật toán tìm đường có tổng trọng số nhỏ nhất.
+- **CRS**: hệ tọa độ dùng để đặt và đo geometry.
+- **Geometry**: hình học không gian dạng điểm, đường hoặc vùng.
+- **Buffer**: vùng được nới rộng thêm một khoảng quanh boundary.
+- **Hexagon/cell**: ô không gian dùng làm đơn vị phân tích.
+- **Representative point**: một điểm đại diện nằm bên trong polygon.
+- **Spatial join**: ghép dữ liệu dựa trên vị trí thay vì dựa trên ID.
+- **GeoParquet**: file Parquet có thêm cột geometry.
+- **GraphML**: định dạng file dùng để lưu graph.
+- **Schema**: danh sách cột, kiểu dữ liệu và quy tắc của một bảng.
+- **Metadata**: thông tin mô tả dữ liệu như nguồn, phiên bản và đường dẫn.
+- **Feature**: một cột số mô tả cell, ví dụ mật độ POI.
+- **Artifact**: file kết quả của một bước để bước sau sử dụng.
+- **Snapshot**: phiên bản dữ liệu tại một thời điểm.
+- **Resume**: chạy tiếp từ phần chưa hoàn thành.
 
 ## Phân công tổng quát
 
-### Thành — trung bình–khó
+### Thành — trung bình đến khó
 
-- POI, DuckDB schema, SQL analytics, data quality và service features.
+- POI, DuckDB, SQL, dữ liệu dịch vụ và kiểm tra chất lượng.
 
-### Hiếu — trung bình–khó
+### Hiếu — trung bình đến khó
 
-- PBF, boundary buffer, graph, snap, accessibility và road features.
+- PBF, ranh giới, graph, snap, Dijkstra và dữ liệu đường.
 
-### Quang — dễ–trung bình
+### Quang — dễ đến trung bình
 
-- Config/registry support, EDA, feature validation, clustering, bản đồ và báo cáo chạy.
+- Config, kiểm tra đầu ra, clustering, bản đồ và báo cáo.
 
-## Quy tắc làm việc
+## Quy tắc chung
 
-1. Mỗi giai đoạn có owner, reviewer và smoke tester.
-2. Không bắt đầu giai đoạn sau khi đầu ra bắt buộc của giai đoạn trước chưa đạt.
-3. Không thêm xử lý riêng kiểu `if region == "hanoi"`.
-4. Notebook chỉ dùng khám phá; logic chạy lại phải nằm trong `src/`.
-5. SQL được Python tự chạy trong DuckDB; không có bước import thủ công.
-6. File PBF, GraphML lớn, DuckDB và full Parquet không commit vào Git.
-7. Mỗi người phải chạy pipeline mẫu và trình bày lại một module không do mình làm chính.
+1. Không viết riêng logic cho Hà Nội hoặc Đà Nẵng trong source.
+2. Không dùng đường dẫn tuyệt đối như `D:\...`.
+3. Không commit PBF, GraphML, DuckDB và Parquet lớn.
+4. Không chạy SQL thủ công; Python phải tự chạy SQL cần thiết.
+5. Không tự viết Dijkstra nếu thư viện đã có hàm phù hợp.
+6. Không tạo thư mục `tests`; kiểm tra bằng lệnh và dữ liệu mẫu của từng giai đoạn.
+7. Không thêm logging hoặc comment vào code; dùng tên hàm và biến rõ nghĩa.
+8. Mỗi người phải giải thích được phần mình làm và một phần do người khác làm.
 
-## Thứ tự ưu tiên
+## Thứ tự triển khai an toàn
 
 ```text
-Một vùng mẫu nhỏ
-    → Hà Nội end-to-end
-    → Đà Nẵng không sửa source
-    → resume/cache
-    → run-all tuần tự
-    → national analysis
-    → scheduled update
+Dữ liệu mẫu nhỏ
+    → Hà Nội chạy đủ luồng
+    → Đà Nẵng chạy mà không sửa code
+    → chạy tiếp bằng --resume
+    → chạy tuần tự toàn quốc
+    → chỉ tăng số worker khi đã đo RAM và thời gian
 ```
-

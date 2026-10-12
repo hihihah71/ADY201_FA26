@@ -1,45 +1,54 @@
-# Giai đoạn 07 — Hexagon và spatial join
+# Giai đoạn 07 — Hexagon và gán dữ liệu theo vị trí
 
 ## Mục tiêu
 
-Tạo đơn vị phân tích thống nhất và gán POI/road data vào đúng region/cell.
+Chia mỗi khu vực thành các cell thống nhất và xác định POI thuộc cell nào.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Tạo H3/hexagon theo resolution chung.
-- Clip cell biên theo analysis boundary.
-- Tính diện tích theo km².
-- Tạo representative point.
-- Gán POI `inside` và `buffer` theo spatial relation.
-- Chuẩn bị cell cho feature calculation.
+- Boundary hợp lệ từ giai đoạn 04.
+- POI toàn quốc từ giai đoạn 05.
+- Graph đường từ giai đoạn 06.
 
 ## Luồng
 
 ```text
-Analysis boundary
-    ↓ H3/hex generation
-Hex cells
-    ↓ clip + area + representative point
-analytics cells
+analysis boundary
+       ↓ tạo và cắt hexagon
+     các cell
+       ↓ tính diện tích + điểm đại diện
+   cell phân tích
 
-National POI + analysis/buffer boundary
-    ↓ spatial join
-region_poi membership
+POI toàn quốc + cell
+       ↓ spatial join
+POI thuộc region/cell
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Thêm thư viện H3 khi bắt đầu giai đoạn này.
+2. Đọc `hex_resolution` từ `project.json`.
+3. Tạo hexagon phủ boundary.
+4. Cắt cell biên theo boundary thật.
+5. Tính `area_km2` trong CRS theo mét.
+6. Tạo representative point cho mỗi cell.
+7. Gán POI vào region và cell bằng spatial join.
+8. Tách POI dùng cho mật độ và POI buffer dùng cho accessibility.
+
+## File cần tạo hoặc sửa
 
 ```text
-src/ady201/grid/hexagons.py
-src/ady201/poi/region_membership.py
-sql/region_views.sql
+src/ady201/hexagons.py
+src/ady201/spatial_join.py
+src/ady201/main.py
+sql/020_region_views.sql
+pyproject.toml
 ```
 
 Schema cell:
 
 ```text
+snapshot_id
 region_id
 grid_version
 cell_id
@@ -48,64 +57,62 @@ geometry
 representative_point
 ```
 
-Quy tắc:
+Lệnh mục tiêu:
 
-- Dùng cùng resolution nếu muốn so sánh toàn quốc.
-- Cell biên dùng diện tích thực sau clip.
-- POI `inside` dùng cho density.
-- POI `inside + buffer` có thể dùng cho accessibility.
-- POI trên biên chỉ gán một region/cell theo rule cố định.
+```powershell
+ady201 build-grid --region hanoi --snapshot <snapshot_id>
+```
 
-## Kiến thức cần học
+## Quy tắc
 
-### Bắt buộc
+- Dùng cùng H3 resolution nếu muốn so sánh giữa các khu vực.
+- Cell biên dùng diện tích sau khi clip.
+- POI trong boundary gốc dùng tính count và density.
+- POI trong vùng buffer chỉ bổ sung cho tính accessibility.
+- POI nằm đúng đường biên chỉ được gán một lần theo quy tắc cố định.
+- Không dùng tọa độ độ để tính diện tích km².
 
-- H3 resolution/cell ID.
-- Spatial join, intersects, within/covers.
-- Overlay/clip.
-- Tính area trong projected CRS.
+## Cần học trước
 
-### Tìm hiểu sâu bên ngoài
+- Point, polygon và spatial join.
+- `within`, `covers` và `intersects`.
+- Clip/overlay geometry.
+- CRS theo mét và cách tính diện tích.
 
-- H3 Python API.
-- GeoPandas `sjoin`/`overlay`.
-- DuckDB spatial join functions.
-- Boundary precision và sliver polygons.
+## Tìm hiểu thêm
+
+- Từ khóa: `H3 Python polygon to cells`.
+- Từ khóa: `GeoPandas sjoin`.
+- Từ khóa: `GeoPandas overlay clip`.
 
 ## Phân công
 
 ### Thành
 
-- Owner POI–region/cell membership và DuckDB views.
-- Kiểm tra duplicate assignment.
+- Viết phần gán POI vào region/cell.
+- Kiểm tra POI bị gán trùng và số lượng trước/sau join.
 
 ### Hiếu
 
-- Tạo buffered boundary output đúng CRS.
-- Kiểm tra representative point gần road network.
+- Kiểm tra CRS, cell biên và representative point.
+- Kiểm tra điểm đại diện có thể snap vào graph.
 
 ### Quang
 
-- Owner hex generation và preview maps.
-- Thử hai resolution trên Hà Nội.
-
-### Review
-
-- Thành kiểm tra counts.
-- Hiếu kiểm tra CRS.
-- Quang kiểm tra trực quan cell biên.
+- Tạo hexagon và bản đồ xem nhanh.
+- So sánh hai resolution trên một khu vực nhỏ.
 
 ## Đầu ra
 
 ```text
-grid/hexagons.parquet
-poi/region_membership.parquet
-grid/quality.json
+data/processed/{snapshot_id}/{region_id}/grid/hexagons.parquet
+data/processed/{snapshot_id}/{region_id}/poi/region_membership.parquet
+outputs/quality/{snapshot_id}/{region_id}/grid_summary.json
 ```
 
 ## Hoàn thành khi
 
-- Không có cell ngoài analysis boundary.
-- Tổng diện tích cell hợp lý so với boundary.
-- Không double-count POI trong density.
-
+- Không có cell nằm hoàn toàn ngoài boundary.
+- Tổng diện tích cell gần bằng diện tích boundary.
+- Mỗi POI dùng cho density chỉ thuộc một cell.
+- Bản đồ cell phủ đúng khu vực.

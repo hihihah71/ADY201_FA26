@@ -1,112 +1,114 @@
-# Giai đoạn 06 — Region PBF và road graph
+# Giai đoạn 06 — PBF khu vực và graph đường
 
 ## Mục tiêu
 
-Cắt PBF theo boundary buffer và tạo walking/driving graph dùng chung cho mọi region.
+Cắt dữ liệu đường cho từng khu vực và tạo graph đi bộ, graph lái xe có thể dùng lại.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Cắt region PBF bằng Osmium.
-- Tạo walking graph cho accessibility.
-- Tạo driving graph cho infrastructure features.
-- Tính length/travel time.
-- Validate connected components và one-way.
-- Lưu GraphML và node/edge GeoParquet.
+- PBF snapshot và boundary buffer từ giai đoạn 04.
+- Hiểu node, edge và graph có hướng.
 
 ## Luồng
 
 ```text
-Vietnam PBF + buffered boundary
-        ↓ Osmium complete_ways
-region.osm.pbf
-        ├── walking network → walk.graphml
-        └── driving network → drive.graphml
+Vietnam PBF + boundary buffer
+             ↓ Osmium
+         region.osm.pbf
+          ↙          ↘
+ walking graph     driving graph
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Dùng Osmium cắt PBF theo boundary buffer.
+2. Dùng Pyrosm đọc mạng đi bộ và mạng lái xe.
+3. Chuyển node/edge thành graph NetworkX.
+4. Tính `length_m` cho edge.
+5. Tính `travel_time_s` cho graph đi bộ và lái xe.
+6. Giữ thông tin đường một chiều.
+7. Lưu graph bằng GraphML và lưu node/edge bằng GeoParquet.
+8. Tạo bảng tóm tắt số node, edge và connected component.
+
+## File cần tạo hoặc sửa
 
 ```text
-src/ady201/network/extract_pbf.py
-src/ady201/network/build_graph.py
-src/ady201/network/validate.py
+src/ady201/network.py
+src/ady201/road_extract.py
+src/ady201/road_graph.py
+src/ady201/main.py
+pyproject.toml
 ```
 
-Artifact:
+Lệnh mục tiêu:
 
-```text
-extract/region.osm.pbf
-network/walk.graphml
-network/drive.graphml
-network/walk_nodes.parquet
-network/walk_edges.parquet
-network/drive_nodes.parquet
-network/drive_edges.parquet
-network/quality.json
+```powershell
+ady201 build-network --region hanoi --snapshot <snapshot_id>
 ```
 
-Walking edge:
+Công thức đi bộ:
 
 ```text
 travel_time_s = length_m / walking_speed_mps
 ```
 
-Quy tắc:
+`walking_speed_mps` lấy từ `project.json`, không viết cố định trong hàm.
 
-- Graph là directed `MultiDiGraph`.
-- Giữ `u`, `v`, `key` cho parallel edges.
-- Không loại component nhỏ trước khi báo cáo.
-- Không đưa toàn bộ graph vào DuckDB nếu không cần.
+## Quy tắc
 
-## Kiến thức cần học
+- Graph dùng `MultiDiGraph` để giữ đường song song và chiều đi.
+- Mỗi edge giữ `u`, `v`, `key`, `length_m` và `travel_time_s`.
+- Weight dùng cho Dijkstra phải là số không âm.
+- Không xóa component nhỏ trước khi tạo báo cáo.
+- Không lưu toàn bộ graph vào DuckDB nếu GraphML/Parquet đã đủ.
 
-### Bắt buộc
+## Cần học trước
 
-- Osmium extract và `complete_ways`.
-- Pyrosm `get_network`.
-- Directed/multi graph.
-- Graph simplification.
-- Connected components và edge weights.
+- Node, edge, directed graph và weight.
+- `MultiDiGraph` của NetworkX.
+- Connected component.
+- Tag OSM `highway`, `access` và `oneway`.
 
-### Tìm hiểu sâu bên ngoài
+## Tìm hiểu thêm
 
-- OSM access/oneway tags.
-- OSMnx graph conversion/storage.
-- GraphML limitations.
-- Turn restrictions; ngoài MVP.
+- Từ khóa: `osmium extract complete ways`.
+- Từ khóa: `Pyrosm get_network walking driving`.
+- Từ khóa: `NetworkX MultiDiGraph`.
+- Từ khóa: `OSMnx save graphml`.
 
 ## Phân công
 
 ### Thành
 
-- Định nghĩa graph metadata và artifact record trong DuckDB.
-- Review node/edge schema.
+- Chốt schema node/edge và metadata artifact trong DuckDB.
+- Kiểm tra file Parquet đọc được bằng SQL.
 
 ### Hiếu
 
-- Owner PBF extract, graph builder và graph validation.
-- Benchmark RAM/runtime.
+- Viết phần cắt PBF và tạo hai graph.
+- Kiểm tra one-way, component, weight và mức dùng RAM.
 
 ### Quang
 
-- Vẽ graph mẫu và tạo quality summary.
-- Smoke test output trên hai region nhỏ.
-
-### Review
-
-- Thành review schema.
-- Quang kiểm tra trực quan.
-- Hiếu xử lý graph defects.
+- Vẽ graph mẫu trên boundary.
+- Chọn năm cặp điểm và kiểm tra tuyến đường có hợp lý không.
 
 ## Đầu ra
 
-- Walking và driving graph có thể load lại.
-- Báo cáo node, edge, components và weight validity.
+```text
+data/processed/{snapshot_id}/{region_id}/extract/region.osm.pbf
+data/processed/{snapshot_id}/{region_id}/network/walk.graphml
+data/processed/{snapshot_id}/{region_id}/network/drive.graphml
+data/processed/{snapshot_id}/{region_id}/network/walk_nodes.parquet
+data/processed/{snapshot_id}/{region_id}/network/walk_edges.parquet
+data/processed/{snapshot_id}/{region_id}/network/drive_nodes.parquet
+data/processed/{snapshot_id}/{region_id}/network/drive_edges.parquet
+outputs/quality/{snapshot_id}/{region_id}/network_summary.json
+```
 
 ## Hoàn thành khi
 
-- Tất cả routing edges có weight dương.
-- Có ít nhất năm route mẫu hợp lý.
-- Đổi `region_id` không cần sửa graph code.
-
+- Graph load lại được từ file.
+- Edge dùng để routing đều có weight hợp lệ.
+- Năm tuyến mẫu đi theo đường thay vì đường thẳng.
+- Đổi `region_id` không cần sửa code graph.

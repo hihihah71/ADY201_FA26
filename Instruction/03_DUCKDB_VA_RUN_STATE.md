@@ -2,112 +2,111 @@
 
 ## Mục tiêu
 
-Dùng một file DuckDB được Python tự khởi tạo; không thao tác qua pgAdmin hoặc import thủ công.
+Python tự tạo và sử dụng một file DuckDB; không cần pgAdmin hoặc import thủ công.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Tạo database manager.
-- Tự chạy SQL schema từ Python.
-- Tạo bảng region, snapshot, run và step state.
-- Tạo cơ chế transaction và quality query.
-- Quy định chỉ một process ghi DuckDB tại một thời điểm.
+- Đọc được config và khu vực ở giai đoạn 02.
+- Biết SQL cơ bản: `CREATE TABLE`, `SELECT`, `INSERT` và `UPDATE`.
 
 ## Luồng
 
 ```text
-Python CLI
-    ↓ duckdb.connect()
-sql/*.sql
-    ↓ tự động execute
+main.py
+   ↓ gọi database.py
+sql/001_schema.sql
+   ↓ tự chạy
 data/database/ady201.duckdb
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Tạo file SQL chứa toàn bộ bảng ban đầu.
+2. Viết `connect_database()` để mở DuckDB.
+3. Viết `initialize_database()` để tự chạy file SQL.
+4. Đồng bộ dữ liệu từ `regions.json` vào bảng `regions`.
+5. Viết các hàm bắt đầu và kết thúc một lần chạy.
+6. Dùng transaction để lỗi giữa chừng không ghi dữ liệu dở dang.
+7. Thêm lệnh `db-init` và `db-check` vào `main.py`.
+
+## File cần tạo hoặc sửa
 
 ```text
-data/database/                 # gitignored
 sql/001_schema.sql
-sql/002_registry.sql
-sql/003_run_state.sql
-sql/004_views.sql
-src/ady201/storage/duckdb.py
-src/ady201/storage/state.py
+src/ady201/database.py
+src/ady201/run_state.py
+src/ady201/main.py
+data/database/ady201.duckdb
 ```
 
 Bảng tối thiểu:
 
 ```text
-region
-snapshot
-pipeline_run
-pipeline_step_run
-artifact_manifest
-model_registry
+regions
+snapshots
+pipeline_runs
+pipeline_steps
+artifacts
 ```
 
-Lệnh mục tiêu:
+Trạng thái dùng thống nhất:
 
-```powershell
-ady201 db init
-ady201 db migrate
-ady201 db check
+```text
+pending
+running
+completed
+failed
 ```
 
-Quy tắc:
+## Quy tắc
 
-- SQL được lưu thành file có version.
-- Python đọc và execute SQL.
+- Python luôn tự chạy SQL cần thiết.
 - Không commit file `.duckdb`.
-- Region workers ghi Parquet; bước aggregation duy nhất ghi DuckDB.
+- Mỗi thời điểm chỉ có một process ghi vào DuckDB.
+- File dữ liệu lớn lưu bằng Parquet; DuckDB lưu metadata và bảng tổng hợp.
+- Lỗi được lưu vào cột `error_message`, không cần hệ thống logging riêng.
 
-## Kiến thức cần học
-
-### Bắt buộc
+## Cần học trước
 
 - DuckDB Python API.
-- SQL DDL, table, view, primary/unique key.
-- Transaction và rollback.
-- Parquet scan.
-- Spatial extension: `INSTALL/LOAD spatial`.
+- SQL DDL và CRUD cơ bản.
+- Transaction, `commit` và `rollback`.
+- Khóa chính và giá trị unique.
 
-### Tìm hiểu sâu bên ngoài
+## Tìm hiểu thêm
 
-- DuckDB concurrency model.
-- DuckDB spatial functions.
-- Schema migration đơn giản.
+- Từ khóa: `DuckDB Python connect execute`.
+- Từ khóa: `database transaction rollback`.
+- Từ khóa: `DuckDB read parquet`.
 
 ## Phân công
 
 ### Thành
 
-- Thiết kế schema và SQL migrations.
-- Viết database manager và quality queries.
+- Thiết kế bảng và file `001_schema.sql`.
+- Viết hàm mở database và khởi tạo schema.
 
 ### Hiếu
 
-- Định nghĩa metadata graph/artifact cần lưu.
-- Kiểm tra transaction khi step graph thất bại.
+- Thiết kế bảng `artifacts` và `pipeline_steps`.
+- Kiểm tra rollback khi cố ý tạo lỗi.
 
 ### Quang
 
-- Tạo CLI `db init/check`.
-- Tạo view/report cho trạng thái run.
-
-### Review
-
-- Hiếu review artifact schema.
-- Quang chạy init từ database trống.
-- Thành xác nhận schema output.
+- Thêm lệnh `db-init`, `db-check`.
+- Viết câu lệnh hiển thị số bảng và trạng thái gần nhất.
 
 ## Đầu ra
 
-- `ady201.duckdb` được tạo tự động.
-- Có run/step record.
-- Có thể xóa database và dựng lại bằng lệnh.
+- DuckDB được tạo tự động.
+- Có thể lưu khu vực, snapshot và trạng thái chạy.
+- Có thể xóa database rồi dựng lại bằng một lệnh.
 
 ## Hoàn thành khi
 
-Một máy mới chạy `ady201 db init` mà không mở bất kỳ GUI database nào.
+```powershell
+ady201 db-init
+ady201 db-check
+```
 
+chạy được trên máy mới mà không mở ứng dụng database nào.

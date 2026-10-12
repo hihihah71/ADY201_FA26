@@ -209,6 +209,24 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Project build and test artifacts
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local analytical databases and generated artifacts
+*.duckdb
+*.duckdb.wal
+/data/raw/
+/data/interim/
+/data/processed/
+/data/artifacts/
+/data/database/
+/outputs/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

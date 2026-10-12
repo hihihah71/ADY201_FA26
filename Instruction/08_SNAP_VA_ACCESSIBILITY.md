@@ -2,37 +2,48 @@
 
 ## Mục tiêu
 
-Đưa POI/cell vào walking graph và tính khả năng tiếp cận dịch vụ bằng hàm Dijkstra có sẵn.
+Tính thời gian đi bộ từ mỗi cell tới các dịch vụ gần nhất bằng hàm Dijkstra có sẵn.
 
-## Nhiệm vụ tổng quát
+## Cần có trước
 
-- Snap POI và representative point vào nearest graph node.
-- Lưu snap distance và status.
-- Kiểm thử một số route A–B.
-- Chạy multi-source Dijkstra theo category.
-- Tạo feature 5/10/15 phút.
+- Walking graph từ giai đoạn 06.
+- Cell và POI membership từ giai đoạn 07.
+- Edge có `travel_time_s` hợp lệ.
+
+## Khái niệm đơn giản
+
+- **Snap**: tìm node đường gần nhất cho một POI hoặc cell.
+- **Accessibility**: mức dễ tiếp cận dịch vụ.
+- **Multi-source Dijkstra**: tính khoảng cách tới nguồn gần nhất trong một lần chạy.
 
 ## Luồng
 
 ```text
-POI/cell points + walking graph
-        ↓ nearest-node batch
-Snapped nodes
-        ↓ category destinations
-Multi-source Dijkstra
-        ↓
-Accessibility features theo cell
+POI + representative point của cell
+                ↓ snap
+          node gần nhất
+                ↓ Dijkstra theo category
+       thời gian tới dịch vụ gần nhất
 ```
 
-## Những thứ cần thay đổi
+## Các bước thực hiện
 
-Tạo:
+1. Load walking graph từ GraphML.
+2. Snap POI vào node gần nhất và lưu khoảng cách snap.
+3. Snap representative point của cell vào node gần nhất.
+4. Gom node POI theo từng category.
+5. Gọi hàm multi-source Dijkstra của NetworkX.
+6. Đổi giây sang phút.
+7. Tạo cột dịch vụ trong phạm vi 5, 10 và 15 phút.
+8. Đánh dấu cell không thể đi tới dịch vụ thay vì thay bằng 0.
+9. Kiểm tra thủ công một số tuyến A–B trên bản đồ.
+
+## File cần tạo hoặc sửa
 
 ```text
-src/ady201/network/snap.py
-src/ady201/network/accessibility.py
-tests/test_snap.py
-tests/test_accessibility.py
+src/ady201/snap.py
+src/ady201/accessibility.py
+src/ady201/main.py
 ```
 
 Snap output:
@@ -41,86 +52,83 @@ Snap output:
 object_type
 object_id
 region_id
-network_type
 node_id
 snap_distance_m
 status
 ```
 
-Accessibility output tối thiểu:
+Accessibility output:
 
 ```text
+cell_id
 nearest_hospital_min
 nearest_pharmacy_min
 nearest_school_min
 nearest_supermarket_min
 nearest_transit_min
-*_within_5m
-*_within_10m
-*_within_15m
-unreachable flags
+hospital_within_15_min
+school_within_15_min
+unreachable_hospital
 ```
 
-Quy tắc:
+Lệnh mục tiêu:
 
-- Project graph/points về cùng CRS.
-- Snap theo batch, không loop nếu thư viện hỗ trợ vectorization.
-- Không thay unreachable bằng 0.
-- Không chạy Dijkstra cho mọi cặp cell–POI.
-- Với directed graph, kiểm tra chiều graph/reversed graph.
+```powershell
+ady201 build-accessibility --region hanoi --snapshot <snapshot_id>
+```
 
-## Kiến thức cần học
+## Quy tắc
 
-### Bắt buộc
+- Không tự viết Dijkstra từ đầu.
+- Weight của Dijkstra là `travel_time_s`.
+- Không chạy Dijkstra riêng cho từng cặp cell–POI.
+- Nếu graph có hướng, kiểm tra chiều đi; có thể cần reversed graph khi POI là nguồn.
+- Không thay giá trị unreachable bằng 0.
+- Ghi lại snap distance để phát hiện điểm quá xa đường.
 
-- Nearest node/edge.
-- Dijkstra weight và non-negative cost.
+## Cần học trước
+
+- Nearest node.
+- Dijkstra và edge weight.
 - Multi-source Dijkstra.
-- Directed graph/reverse graph.
-- Unreachable/component handling.
+- Directed graph và reversed graph.
+- Giá trị unreachable.
 
-### Tìm hiểu sâu bên ngoài
+## Tìm hiểu thêm
 
-- OSMnx nearest nodes/edges.
-- NetworkX multi-source Dijkstra.
-- KD-tree/Ball-tree.
-- Edge snapping và connector; phần nâng cao.
+- Từ khóa: `OSMnx nearest_nodes`.
+- Từ khóa: `NetworkX multi_source_dijkstra_path_length`.
+- Từ khóa: `directed graph reverse shortest path`.
 
 ## Phân công
 
 ### Thành
 
-- Định nghĩa accessibility output schema.
-- Viết quality SQL/DuckDB queries.
+- Chốt schema accessibility và câu SQL kiểm tra missing/unreachable.
+- Kiểm tra số cell cho từng category.
 
 ### Hiếu
 
-- Owner snapping, route tests và multi-source Dijkstra.
-- Kiểm tra outlier/unreachable.
+- Viết snap và gọi multi-source Dijkstra.
+- Kiểm tra chiều graph, weight và các điểm snap quá xa.
 
 ### Quang
 
-- Vẽ snap outliers và route mẫu.
-- Kiểm tra phân phối travel time.
-
-### Review
-
-- Thành kiểm tra schema/count.
-- Quang kiểm tra trực quan.
-- Hiếu xác minh thuật toán/weight.
+- Vẽ các tuyến mẫu và điểm snap bất thường.
+- Tạo bảng phân bố thời gian 5, 10 và 15 phút.
 
 ## Đầu ra
 
 ```text
-snap/poi_snap.parquet
-snap/cell_snap.parquet
-accessibility/cell_accessibility.parquet
-accessibility/quality.json
+data/processed/{snapshot_id}/{region_id}/snap/poi_snap.parquet
+data/processed/{snapshot_id}/{region_id}/snap/cell_snap.parquet
+data/processed/{snapshot_id}/{region_id}/accessibility/cell_accessibility.parquet
+outputs/quality/{snapshot_id}/{region_id}/accessibility_summary.json
 ```
 
 ## Hoàn thành khi
 
-- Multi-source result khớp route point-to-point mẫu.
-- Có snap-distance report.
-- Unreachable được xử lý rõ ràng.
-
+- Kết quả tuyến mẫu phù hợp với đường trên bản đồ.
+- Không có travel time âm.
+- Cell unreachable được đánh dấu rõ.
+- Chạy một lần cho mỗi category, không chạy cho từng POI.
