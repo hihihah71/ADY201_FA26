@@ -3,6 +3,7 @@ from pathlib import Path
 
 from ady201 import __version__
 from ady201.poi import normalize_poi_file
+from ady201.regions import get_bbox
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -14,6 +15,9 @@ def create_parser() -> argparse.ArgumentParser:
     normalize_command.add_argument("source", type=Path)
     normalize_command.add_argument("destination", type=Path)
 
+    get_bbox_command = commands.add_parser("get_bbox")
+    get_bbox_command.add_argument("location", type=Path)
+
     return parser
 
 
@@ -24,4 +28,7 @@ def main(arguments: list[str] | None = None) -> int:
     if options.command == "normalize-poi":
         normalize_poi_file(options.source, options.destination)
 
+    if options.command == "get_bbox":
+        get_bbox(options.location)
+        
     return 0
