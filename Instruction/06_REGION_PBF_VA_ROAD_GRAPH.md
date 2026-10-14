@@ -21,14 +21,77 @@ Vietnam PBF + boundary buffer
 
 ## Các bước thực hiện
 
-1. Dùng Osmium cắt PBF theo boundary buffer.
-2. Dùng Pyrosm đọc mạng đi bộ và mạng lái xe.
-3. Chuyển node/edge thành graph NetworkX.
-4. Tính `length_m` cho edge.
-5. Tính `travel_time_s` cho graph đi bộ và lái xe.
-6. Giữ thông tin đường một chiều.
-7. Lưu graph bằng GraphML và lưu node/edge bằng GeoParquet.
-8. Tạo bảng tóm tắt số node, edge và connected component.
+### Bước 1 — Cắt PBF cho một khu vực
+
+- Lấy Vietnam PBF theo `snapshot_id` và extraction boundary đã buffer ở giai đoạn 04.
+- Chạy lệnh tương đương: `osmium extract --polygon <boundary.geojson> --strategy complete_ways --output <region.osm.pbf> <vietnam.osm.pbf>`.
+- Ghi file vào đúng thư mục của `snapshot_id` và `region_id`; không dùng chung một `region.osm.pbf` cho mọi lần chạy.
+- Dùng `osmium fileinfo` kiểm tra file đầu ra trước khi Pyrosm đọc.
+
+Kết quả cần thấy: PBF khu vực nhỏ hơn PBF Việt Nam và có thêm phần đường gần biên nhờ extraction boundary.
+
+### Bước 2 — Trích xuất hai loại mạng đường
+
+- Trong `road_extract.py`, đọc cùng một region PBF hai lần theo loại network: walking và driving.
+- Walking graph chỉ giữ các đường người đi bộ được phép sử dụng; driving graph giữ đường xe cơ giới phù hợp.
+- Giữ các tag cần cho phân tích như `highway`, `oneway`, `access`, `maxspeed`, `name` và geometry.
+- Kiểm tra node/edge không rỗng trước khi chuyển sang graph.
+
+Kết quả cần thấy: walking và driving có số node/edge khác nhau vì quy tắc di chuyển khác nhau.
+
+### Bước 3 — Tạo `MultiDiGraph`
+
+- Chuyển bảng node/edge thành `networkx.MultiDiGraph` trong `road_graph.py`.
+- Node cần có `node_id`, `x`, `y`; edge cần có `u`, `v`, `key` và các thuộc tính đường.
+- Dùng graph có hướng để giữ chiều đi; dùng multi-graph để không làm mất các đoạn đường song song giữa cùng hai node.
+- Kiểm tra mọi `u` và `v` của edge đều tồn tại trong bảng node.
+
+Kết quả cần thấy: có thể chọn một edge bằng bộ khóa `(u, v, key)` và graph không có edge mồ côi.
+
+### Bước 4 — Chuẩn hóa chiều dài edge
+
+- Ưu tiên trường chiều dài do thư viện trích xuất cung cấp nếu đơn vị và nguồn rõ ràng.
+- Nếu phải tự tính, chuyển geometry sang CRS theo mét rồi tính độ dài.
+- Đổi về số thực và đặt tên thống nhất là `length_m`.
+- Dừng bước nếu có `length_m` âm, bằng null hoặc bằng 0 bất thường.
+
+Kết quả cần thấy: mọi edge dùng cho routing có chiều dài theo mét và không âm.
+
+### Bước 5 — Tạo weight thời gian di chuyển
+
+- Với walking graph, tính `travel_time_s = length_m / walking_speed_mps`.
+- Lấy `walking_speed_mps` từ `project.json`, không ghi số cố định trong hàm.
+- Với driving graph, chuẩn hóa tốc độ về m/s rồi tính thời gian; nếu thiếu `maxspeed`, dùng bảng tốc độ mặc định theo `highway` và ghi cờ đã ước lượng.
+- Kiểm tra `travel_time_s` là số hữu hạn và không âm.
+
+Kết quả cần thấy: Dijkstra có thể dùng trực tiếp `travel_time_s` làm weight.
+
+### Bước 6 — Giữ đúng chiều đi của đường
+
+- Với đường một chiều, chỉ tạo edge theo chiều được phép.
+- Với đường hai chiều, graph cần có edge cho cả hai hướng nhưng vẫn phải nhận biết đây là cùng một đoạn đường vật lý khi tính tổng chiều dài ở giai đoạn 09.
+- Kiểm tra một vài đường có tag `oneway=yes`, vòng xuyến và đường cấm truy cập.
+- Không đổi toàn bộ graph thành undirected chỉ để routing dễ hơn.
+
+Kết quả cần thấy: tuyến mẫu không đi ngược chiều trên đoạn đường một chiều.
+
+### Bước 7 — Lưu artifact và đọc thử lại
+
+- Lưu walking/driving graph thành hai file GraphML riêng.
+- Lưu node và edge thành GeoParquet để DuckDB và GeoPandas phân tích mà không cần load graph.
+- Sau khi ghi, mở lại GraphML rồi kiểm tra kiểu dữ liệu của `length_m` và `travel_time_s`; GraphML có thể đọc thuộc tính số thành chuỗi.
+- So sánh số node/edge trước và sau khi lưu.
+
+Kết quả cần thấy: graph load lại có cùng số node/edge và weight vẫn chuyển được về số.
+
+### Bước 8 — Tạo báo cáo chất lượng mạng đường
+
+- Ghi số node, edge, tổng chiều dài và số connected component cho từng network.
+- Ghi kích thước component lớn nhất để nhận ra graph bị đứt bất thường.
+- Thống kê số edge thiếu weight, weight bằng 0 và số edge một chiều.
+- Lưu báo cáo vào `network_summary.json` để so sánh giữa các snapshot.
+
+Kết quả cần thấy: người kiểm tra không cần mở GraphML vẫn biết graph có đủ dữ liệu cơ bản hay không.
 
 ## File cần tạo hoặc sửa
 
@@ -61,6 +124,13 @@ travel_time_s = length_m / walking_speed_mps
 - Weight dùng cho Dijkstra phải là số không âm.
 - Không xóa component nhỏ trước khi tạo báo cáo.
 - Không lưu toàn bộ graph vào DuckDB nếu GraphML/Parquet đã đủ.
+
+## Lỗi thường gặp
+
+- Cắt đúng boundary gốc mà không buffer, khiến đường bị đứt ngay sát biên.
+- Tính chiều dài trực tiếp trên EPSG:4326 nên nhận đơn vị độ thay vì mét.
+- Chuyển graph thành vô hướng và làm mất quy tắc đường một chiều.
+- Load GraphML rồi truyền weight dạng chuỗi vào thuật toán đường đi.
 
 ## Cần học trước
 

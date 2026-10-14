@@ -26,22 +26,85 @@ region_id + snapshot_id tùy chọn
 
 ## Các bước thực hiện
 
-1. Viết một hàm Python cho mỗi step.
-2. Tạo danh sách thứ tự step trong `pipeline.py`.
-3. Trước mỗi step, kiểm tra input bắt buộc đã tồn tại.
-4. Sau mỗi step, lưu trạng thái và đường dẫn output vào DuckDB.
-5. Nếu step lỗi, lưu `error_message` rồi dừng khu vực đó.
-6. Với `--resume`, bỏ qua step đã hoàn thành và output vẫn hợp lệ.
-7. Nếu không truyền snapshot, dùng snapshot đang được đánh dấu active.
-8. Thêm `run-region` và `run-status` vào `main.py`.
+### Bước 1 — Biến mỗi công đoạn thành một hàm gọi được
+
+- Mỗi step từ giai đoạn 04 đến 10 cần có một hàm Python công khai, không phụ thuộc vào biến global thay đổi ngầm.
+- Dùng đầu vào thống nhất như `region_id`, `snapshot_id`, config và các đường dẫn cần thiết.
+- Hàm trả về đường dẫn artifact hoặc một dictionary kết quả nhỏ; không chỉ tạo file rồi trả về `None`.
+- Chạy riêng từng hàm/lệnh thành công trước khi nối vào pipeline.
+
+Kết quả cần thấy: có thể gọi và kiểm tra từng step độc lập khi xảy ra lỗi.
+
+### Bước 2 — Khai báo thứ tự và phụ thuộc của step
+
+- Trong `pipeline.py`, tạo một danh sách có thứ tự đúng như phần “Thứ tự step” bên dưới.
+- Mỗi phần tử cần có tên step, hàm cần gọi, input bắt buộc và output dự kiến.
+- Không tìm file bằng “file mới nhất”; mọi đường dẫn phải được tạo từ `snapshot_id` và `region_id` hiện tại.
+- Pipeline duyệt danh sách tuần tự trong phiên bản đầu.
+
+Kết quả cần thấy: đọc một cấu trúc duy nhất là biết pipeline chạy bước nào trước và bước nào sau.
+
+### Bước 3 — Kiểm tra đầu vào trước khi chạy step
+
+- Xác nhận region tồn tại và `enabled=true`.
+- Xác nhận snapshot tồn tại; nếu người dùng không truyền thì truy vấn đúng một snapshot active.
+- Trước từng step, kiểm tra file/bảng phụ thuộc tồn tại, không rỗng và thuộc đúng snapshot/region.
+- Báo thiếu input bằng tên step và đường dẫn cụ thể, không để thư viện sâu bên trong báo lỗi khó hiểu.
+
+Kết quả cần thấy: pipeline dừng sớm với lỗi dễ sửa nếu thiếu boundary, graph hoặc Parquet.
+
+### Bước 4 — Tạo bảng trạng thái chạy
+
+- Tạo `sql/040_run_state.sql` ở giai đoạn này.
+- `pipeline_runs` lưu một lần chạy: `run_id`, `snapshot_id`, `region_id`, trạng thái, thời gian bắt đầu/kết thúc.
+- `pipeline_steps` lưu từng bước: `run_id`, `step_name`, trạng thái, `output_path`, checksum hoặc metadata kiểm tra, thời gian và `error_message`.
+- Khi tạo run mới, thêm các step với trạng thái `pending`; trước khi gọi hàm đổi thành `running`, sau khi thành công đổi thành `completed`.
+
+Kết quả cần thấy: DuckDB cho biết lần chạy nào đang dở và bước cuối cùng đã thành công.
+
+### Bước 5 — Xử lý lỗi tại đúng step
+
+- Bọc lời gọi từng step bằng `try/except`, không bọc toàn pipeline bằng một thông báo lỗi chung.
+- Khi lỗi, cập nhật step thành `failed`, lưu loại lỗi và nội dung ngắn gọn rồi cập nhật run thành `failed`.
+- Dừng các step còn lại của region vì đầu vào tiếp theo có thể không hợp lệ.
+- Ném lỗi trở lại CLI để tiến trình trả exit code khác 0.
+
+Kết quả cần thấy: `run-status` chỉ ra chính xác step lỗi và nguyên nhân gần nhất.
+
+### Bước 6 — Cài đặt `--resume` an toàn
+
+- Chỉ skip khi trạng thái là `completed` và output path vẫn tồn tại.
+- Kiểm tra thêm file không rỗng, schema/metadata đúng và checksum/config liên quan chưa thay đổi.
+- Nếu output mất hoặc config đầu vào đổi, chạy lại step đó và tất cả step phụ thuộc phía sau.
+- Step phải idempotent: chạy lại sẽ thay đúng artifact của cùng run/snapshot, không nối thêm duplicate.
+
+Kết quả cần thấy: xóa output của một step rồi chạy `--resume` sẽ tạo lại từ step đó, không bỏ qua sai.
+
+### Bước 7 — Chọn snapshot rõ ràng
+
+- Nếu CLI có `--snapshot`, kiểm tra ID đó và dùng chính xác nó.
+- Nếu không có, truy vấn hàng `is_active = true`; nếu không có hoặc có nhiều hơn một thì dừng.
+- Ghi snapshot đã chọn vào run state và mọi artifact.
+- Snapshot không được thay đổi giữa chừng trong cùng một run dù active snapshot được cập nhật bởi tiến trình khác.
+
+Kết quả cần thấy: toàn bộ output của một run truy về cùng một PBF snapshot.
+
+### Bước 8 — Thêm CLI cho người dùng cuối
+
+- `run-region` nhận `--region`, tùy chọn `--snapshot` và `--resume`.
+- `run-status` nhận region hoặc run ID và hiển thị từng step theo đúng thứ tự.
+- `main.py` chỉ đọc tham số rồi gọi hàm trong `pipeline.py`; không đặt logic xử lý dữ liệu ở CLI.
+- Cuối run, ghi `run_summary.json` gồm trạng thái, snapshot, thời gian và đường dẫn output chính.
+
+Kết quả cần thấy: Hà Nội hoặc Đà Nẵng chạy bằng một lệnh, không cần mở Python hay DuckDB thủ công.
 
 ## File cần tạo hoặc sửa
 
 ```text
 src/ady201/pipeline.py
-src/ady201/artifacts.py
 src/ady201/run_state.py
 src/ady201/main.py
+sql/040_run_state.sql
 ```
 
 Thứ tự step:
@@ -78,7 +141,16 @@ ady201 run-status --region hanoi
 - Step chạy lại không được tạo duplicate.
 - Chỉ bỏ qua step khi trạng thái completed và output vẫn tồn tại.
 - Không tạo `cli.py`, `context.py` hoặc hệ thống logging riêng.
-- Trạng thái và lỗi nằm trong DuckDB; kết quả cuối có `run_summary.json`.
+- Tạo hai bảng `pipeline_runs` và `pipeline_steps` ở giai đoạn này.
+- Trạng thái, lỗi và đường dẫn output nằm trong `pipeline_steps`.
+- Kết quả cuối có `run_summary.json`.
+
+## Lỗi thường gặp
+
+- Thấy trạng thái `completed` là skip ngay dù file output đã bị xóa hoặc config đã đổi.
+- Dùng active snapshot lại ở từng step, khiến một run có thể trộn hai snapshot.
+- Bắt lỗi nhưng không trả exit code lỗi, làm batch hiểu nhầm region đã thành công.
+- Đặt toàn bộ logic vào `main.py`, khiến khó gọi lại và khó xác định step lỗi.
 
 ## Cần học trước
 

@@ -25,14 +25,128 @@ project.json + categories.json + regions.json
               các module phía sau
 ```
 
-## Các bước thực hiện
+## Các bước thực hiện chi tiết
 
-1. Tạo ba file JSON trong `config/`.
-2. Viết hàm đọc JSON trong `settings.py`.
-3. Viết hàm lấy một khu vực theo `region_id` trong `regions.py`.
-4. Kiểm tra các trường bắt buộc và báo lỗi dễ hiểu nếu thiếu.
-5. Thêm lệnh `ady201 list-regions` vào `main.py`.
-6. Thử thêm Đà Nẵng chỉ bằng cách sửa `regions.json`.
+### Bước 1 — Chốt cấu trúc ba file JSON
+
+Tạo và phân biệt rõ trách nhiệm:
+
+- `project.json`: tham số dùng chung cho cả project.
+- `categories.json`: mapping OSM tag sang nhóm dịch vụ.
+- `regions.json`: danh sách khu vực có thể chạy.
+
+Tên tham số phải kèm đơn vị để tránh hiểu nhầm:
+
+```json
+{
+  "walking_speed_mps": 1.4,
+  "accessibility_minutes": [5, 10, 15],
+  "hex_resolution": 9,
+  "road_buffer_m": 1000
+}
+```
+
+Không dùng tên mơ hồ như `walking_speed: 5000` vì người đọc không biết đơn vị là mét/giây hay mét/giờ.
+
+`categories.json` nên lưu rule có cả tên tag, thay vì giả định tất cả dịch vụ đều nằm trong `amenity`:
+
+```json
+{
+  "rules": [
+    {
+      "tag": "amenity",
+      "values": ["hospital", "clinic", "pharmacy"],
+      "category": "healthcare",
+      "subcategory": "medical"
+    },
+    {
+      "tag": "shop",
+      "values": ["supermarket"],
+      "category": "shopping",
+      "subcategory": "supermarket"
+    }
+  ]
+}
+```
+
+Kết quả cần thấy: đọc từng file JSON bằng Python không lỗi và mỗi file chỉ chứa đúng loại cấu hình của nó.
+
+### Bước 2 — Viết hàm đọc config trong `settings.py`
+
+- Viết `load_json(path)` để đọc một file JSON và trả về `dict` hoặc `list`.
+- Viết `load_project_settings()` và `load_categories()` gọi lại `load_json()`.
+- Dùng UTF-8 để đọc được tên tiếng Việt.
+- Nếu file không tồn tại hoặc JSON sai cú pháp, để Python báo lỗi kèm đúng đường dẫn file.
+
+Kết quả cần thấy:
+
+```powershell
+python -c "from ady201.settings import load_project_settings; print(load_project_settings())"
+```
+
+### Bước 3 — Chuẩn hóa `regions.json`
+
+Mỗi region dùng cùng bốn trường tối thiểu:
+
+```json
+{
+  "region_id": "hanoi",
+  "name": "Hà Nội",
+  "boundary_path": "data/boundaries/v1/hanoi.geojson",
+  "enabled": true
+}
+```
+
+- `region_id` viết thường, không dấu và không đổi sau khi đã có dữ liệu.
+- `name` chỉ dùng để hiển thị.
+- `boundary_path` là đường dẫn tương đối từ project.
+- `enabled=false` nghĩa là tạm thời không chạy region đó.
+
+Kết quả cần thấy: Hà Nội và Đà Nẵng có hai `region_id` khác nhau và mỗi region trỏ tới một file boundary riêng.
+
+### Bước 4 — Viết hàm tìm region trong `regions.py`
+
+- `load_regions()` trả toàn bộ danh sách.
+- `get_region(region_id)` trả đúng một region.
+- Nếu không tìm thấy, báo lỗi có danh sách ID hợp lệ.
+- Nominatim/get-bbox chỉ dùng hỗ trợ tra cứu; boundary trong registry mới là đầu vào chính thức của phân tích.
+
+Kết quả cần thấy: `get_region("hanoi")` trả đúng cấu hình Hà Nội, còn ID sai tạo thông báo có danh sách ID hợp lệ.
+
+### Bước 5 — Kiểm tra dữ liệu config
+
+Kiểm tra ngay sau khi đọc:
+
+- Không có hai region cùng `region_id`.
+- Các trường bắt buộc không rỗng.
+- `walking_speed_mps` lớn hơn 0.
+- Các ngưỡng phút là số dương và tăng dần.
+- `road_buffer_m` không âm.
+
+Không đợi tới giai đoạn graph mới báo config sai.
+
+Kết quả cần thấy: cố tình tạo `walking_speed_mps = 0` hoặc lặp `region_id` thì loader dừng và chỉ rõ trường sai.
+
+### Bước 6 — Thêm lệnh xem region
+
+Thêm `list-regions` vào `main.py`. Lệnh chỉ đọc config và hiển thị:
+
+```text
+region_id | name    | enabled
+hanoi     | Hà Nội  | true
+danang    | Đà Nẵng | true
+```
+
+Sau đó thêm Đà Nẵng vào `regions.json` và chạy lại. Nếu danh sách thay đổi mà không sửa file Python thì bước này đạt.
+
+Kết quả cần thấy: `ady201 list-regions` hiển thị dữ liệu mới ngay sau khi chỉ sửa JSON.
+
+## Lỗi thường gặp
+
+- Giữ các key cũ như `walking_speed`, `hexagon_size`, `road_buffer` nhưng không ghi đơn vị.
+- Để `regions.json` rỗng rồi các bước sau phải hard-code Hà Nội.
+- Chỉ lưu bounding box từ Nominatim và coi đó là boundary thật; bounding box là hình chữ nhật, không phải ranh giới hành chính.
+- Đổi `region_id` sau khi đã có output, làm đường dẫn và khóa dữ liệu cũ không còn khớp.
 
 ## File cần tạo hoặc sửa
 
