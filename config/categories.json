@@ -1,0 +1,8 @@
+{
+    "healthcare": ["hospital","clinic","doctors","dentist","pharmacy"],
+    "education": ["kindergarten","school","language_school","college","library","university"],
+    "transportation": ["fuel","parking","taxi","bus_station","vehicle_inspection","charging_station"],
+    "financial": ["atm","bank","money_transfer","payment_terminal","payment_centre"],
+    "entertainment": ["cinema","community_centre","music_venue","gambling","nightclub","theatre","bar"],
+    "eatery": ["cafe","fast_food","food_court","ice_cream","restaurant","bbq","pub","water_point"]
+}
