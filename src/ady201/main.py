@@ -5,6 +5,7 @@ from ady201 import __version__
 from ady201.poi import normalize_poi_file
 from ady201.regions import get_bbox
 from ady201.database import initialize_database, check_database
+from ady201.osm_input import check_osm
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -22,6 +23,8 @@ def create_parser() -> argparse.ArgumentParser:
     init_db_command = commands.add_parser("init-db")
 
     check_db_command = commands.add_parser("check-db")
+
+    check_osm = commands.add_parser("check-osm")
 
     return parser
 
@@ -41,5 +44,8 @@ def main(arguments: list[str] | None = None) -> int:
 
     if options.command == "check-db":
         check_database()
+
+    if options.command == "check-osm":
+        check_osm()
         
     return 0
