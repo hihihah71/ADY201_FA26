@@ -89,7 +89,7 @@ Kết quả cần thấy: tên cluster dựa trên số liệu, không dựa và
 - Kết quả model chỉ cần `cell_id`, `cluster_id` và các giá trị hỗ trợ.
 - Left join vào file hexagon bằng `cell_id` và kiểm tra mỗi cell nhận tối đa một nhãn.
 - Giữ cell không được model xử lý với trạng thái rõ ràng, không xóa khỏi bản đồ.
-- Ghi `model_version` và `snapshot_id` vào kết quả.
+- Ghi `model_version` và `region_id` vào kết quả.
 
 Kết quả cần thấy: số geometry sau join bằng số cell ban đầu.
 
@@ -97,7 +97,7 @@ Kết quả cần thấy: số geometry sau join bằng số cell ban đầu.
 
 - Tạo từng bản đồ trong danh sách ở phần dưới bằng cùng boundary, màu nền và cách ghi nguồn.
 - HTML dùng để xem tương tác; PNG dùng để chèn báo cáo và thuyết trình.
-- Mỗi bản đồ phải có title, legend, đơn vị, snapshot, region và nguồn OSM.
+- Mỗi bản đồ phải có title, legend, đơn vị, region và nguồn OSM.
 - Với accessibility, thể hiện riêng unreachable thay vì tô như thời gian bằng 0.
 
 Kết quả cần thấy: người xem không cần mở code vẫn hiểu màu sắc và thời điểm dữ liệu.
@@ -135,7 +135,7 @@ Bản đồ cần có:
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-analysis --region hanoi --snapshot <snapshot_id>
+ady201 build-analysis --region hanoi
 ```
 
 ## Quy tắc
@@ -144,7 +144,7 @@ ady201 build-analysis --region hanoi --snapshot <snapshot_id>
 - Luôn scale feature trước K-Means.
 - Không chọn `k` chỉ vì silhouette cao nhất.
 - Cluster được huấn luyện riêng trong một tỉnh không so số nhãn trực tiếp với tỉnh khác.
-- Bản đồ phải có title, legend, đơn vị, snapshot và nguồn dữ liệu.
+- Bản đồ phải có title, legend, đơn vị, region và nguồn dữ liệu.
 
 ## Lỗi thường gặp
 
@@ -188,11 +188,11 @@ ady201 build-analysis --region hanoi --snapshot <snapshot_id>
 ## Đầu ra
 
 ```text
-data/models/{snapshot_id}/{region_id}/within_region_model.joblib
-data/models/{snapshot_id}/{region_id}/model_metadata.json
-outputs/{snapshot_id}/{region_id}/maps/*.html
-outputs/{snapshot_id}/{region_id}/figures/*.png
-outputs/{snapshot_id}/{region_id}/tables/cluster_profile.csv
+data/models/{region_id}/within_region_model.joblib
+data/models/{region_id}/model_metadata.json
+outputs/{region_id}/maps/*.html
+outputs/{region_id}/figures/*.png
+outputs/{region_id}/tables/cluster_profile.csv
 ```
 
 ## Hoàn thành khi

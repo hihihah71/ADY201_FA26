@@ -104,14 +104,13 @@ Kết quả cần thấy: một bệnh viện ngay ngoài biên có thể dùng 
 src/ady201/hexagons.py
 src/ady201/spatial_join.py
 src/ady201/main.py
-sql/030_region_views.sql
+sql/020_region_views.sql
 pyproject.toml
 ```
 
 Schema cell:
 
 ```text
-snapshot_id
 region_id
 grid_version
 cell_id
@@ -123,7 +122,7 @@ representative_point
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-grid --region hanoi --snapshot <snapshot_id>
+ady201 build-grid --region hanoi
 ```
 
 ## Quy tắc
@@ -175,9 +174,9 @@ ady201 build-grid --region hanoi --snapshot <snapshot_id>
 ## Đầu ra
 
 ```text
-data/processed/{snapshot_id}/{region_id}/grid/hexagons.parquet
-data/processed/{snapshot_id}/{region_id}/poi/region_membership.parquet
-outputs/quality/{snapshot_id}/{region_id}/grid_summary.json
+data/processed/{region_id}/grid/hexagons.parquet
+data/processed/{region_id}/poi/region_membership.parquet
+outputs/quality/{region_id}/grid_summary.json
 ```
 
 ## Hoàn thành khi

@@ -20,7 +20,6 @@ bảng regions
 
 Giai đoạn này mới cần lưu danh sách khu vực, nên chỉ tạo bảng `regions`.
 
-- `snapshots` được thêm ở giai đoạn 04 khi bắt đầu quản lý PBF.
 - `pipeline_runs` và `pipeline_steps` được thêm ở giai đoạn 11 khi pipeline đã tồn tại.
 - Chưa cần bảng `artifacts`; output được tìm theo cấu trúc thư mục cố định.
 

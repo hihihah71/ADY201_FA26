@@ -50,7 +50,7 @@ Kết quả cần thấy: có thể phân biệt cell nhiều POI cùng loại v
 
 ### Bước 3 — Ghép feature accessibility
 
-- Đọc `cell_accessibility.parquet` của cùng snapshot và region.
+- Đọc `cell_accessibility.parquet` của cùng region.
 - Left join theo `cell_id` vào danh sách cell chuẩn.
 - Giữ cả thời gian gần nhất, các cột `within_<n>_min` và trạng thái unreachable.
 - Kiểm tra số hàng không tăng sau join; tăng hàng nghĩa là bảng accessibility bị trùng `cell_id`.
@@ -80,7 +80,7 @@ Kết quả cần thấy: feature phản ánh cấu trúc đường thay vì cá
 - Bắt đầu từ bảng cell chuẩn có một hàng cho mỗi `cell_id`.
 - Left join lần lượt service features, accessibility và road features.
 - Sau mỗi join, kiểm tra số hàng và số `cell_id` duy nhất không thay đổi.
-- Thêm `snapshot_id`, `region_id`, `grid_version` để truy nguồn dữ liệu.
+- Thêm `region_id` và `grid_version` để truy nguồn dữ liệu.
 
 Kết quả cần thấy: `cell_features.parquet` có đúng một hàng cho mỗi cell.
 
@@ -143,7 +143,7 @@ connectivity_score
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-features --region hanoi --snapshot <snapshot_id>
+ady201 build-features --region hanoi
 ```
 
 ## Quy tắc
@@ -197,10 +197,10 @@ ady201 build-features --region hanoi --snapshot <snapshot_id>
 ## Đầu ra
 
 ```text
-data/processed/{snapshot_id}/{region_id}/features/service_features.parquet
-data/processed/{snapshot_id}/{region_id}/features/road_features.parquet
-data/processed/{snapshot_id}/{region_id}/features/cell_features.parquet
-outputs/{snapshot_id}/{region_id}/feature_data_dictionary.md
+data/processed/{region_id}/features/service_features.parquet
+data/processed/{region_id}/features/road_features.parquet
+data/processed/{region_id}/features/cell_features.parquet
+outputs/{region_id}/feature_data_dictionary.md
 ```
 
 ## Hoàn thành khi

@@ -6,7 +6,7 @@ Cắt dữ liệu đường cho từng khu vực và tạo graph đi bộ, graph
 
 ## Cần có trước
 
-- PBF snapshot và boundary buffer từ giai đoạn 04.
+- PBF cố định và boundary buffer từ giai đoạn 04.
 - Hiểu node, edge và graph có hướng.
 
 ## Luồng
@@ -23,9 +23,9 @@ Vietnam PBF + boundary buffer
 
 ### Bước 1 — Cắt PBF cho một khu vực
 
-- Lấy Vietnam PBF theo `snapshot_id` và extraction boundary đã buffer ở giai đoạn 04.
+- Lấy `data/raw/osm/vietnam.osm.pbf` qua `get_osm_path()` và extraction boundary đã buffer ở giai đoạn 04.
 - Chạy lệnh tương đương: `osmium extract --polygon <boundary.geojson> --strategy complete_ways --output <region.osm.pbf> <vietnam.osm.pbf>`.
-- Ghi file vào đúng thư mục của `snapshot_id` và `region_id`; không dùng chung một `region.osm.pbf` cho mọi lần chạy.
+- Ghi file vào đúng thư mục của `region_id`; không dùng chung một `region.osm.pbf` cho mọi khu vực.
 - Dùng `osmium fileinfo` kiểm tra file đầu ra trước khi Pyrosm đọc.
 
 Kết quả cần thấy: PBF khu vực nhỏ hơn PBF Việt Nam và có thêm phần đường gần biên nhờ extraction boundary.
@@ -89,7 +89,7 @@ Kết quả cần thấy: graph load lại có cùng số node/edge và weight v
 - Ghi số node, edge, tổng chiều dài và số connected component cho từng network.
 - Ghi kích thước component lớn nhất để nhận ra graph bị đứt bất thường.
 - Thống kê số edge thiếu weight, weight bằng 0 và số edge một chiều.
-- Lưu báo cáo vào `network_summary.json` để so sánh giữa các snapshot.
+- Lưu báo cáo vào `network_summary.json` để so sánh giữa các region và phát hiện graph bất thường.
 
 Kết quả cần thấy: người kiểm tra không cần mở GraphML vẫn biết graph có đủ dữ liệu cơ bản hay không.
 
@@ -106,7 +106,7 @@ pyproject.toml
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-network --region hanoi --snapshot <snapshot_id>
+ady201 build-network --region hanoi
 ```
 
 Công thức đi bộ:
@@ -166,14 +166,14 @@ travel_time_s = length_m / walking_speed_mps
 ## Đầu ra
 
 ```text
-data/processed/{snapshot_id}/{region_id}/extract/region.osm.pbf
-data/processed/{snapshot_id}/{region_id}/network/walk.graphml
-data/processed/{snapshot_id}/{region_id}/network/drive.graphml
-data/processed/{snapshot_id}/{region_id}/network/walk_nodes.parquet
-data/processed/{snapshot_id}/{region_id}/network/walk_edges.parquet
-data/processed/{snapshot_id}/{region_id}/network/drive_nodes.parquet
-data/processed/{snapshot_id}/{region_id}/network/drive_edges.parquet
-outputs/quality/{snapshot_id}/{region_id}/network_summary.json
+data/processed/{region_id}/extract/region.osm.pbf
+data/processed/{region_id}/network/walk.graphml
+data/processed/{region_id}/network/drive.graphml
+data/processed/{region_id}/network/walk_nodes.parquet
+data/processed/{region_id}/network/walk_edges.parquet
+data/processed/{region_id}/network/drive_nodes.parquet
+data/processed/{region_id}/network/drive_edges.parquet
+outputs/quality/{region_id}/network_summary.json
 ```
 
 ## Hoàn thành khi

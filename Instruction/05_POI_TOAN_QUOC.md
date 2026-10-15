@@ -2,11 +2,11 @@
 
 ## Mục tiêu
 
-Tạo một bộ POI chuẩn hóa cho toàn Việt Nam ở mỗi snapshot, thay cho nhiều script riêng theo loại dịch vụ.
+Tạo một bộ POI chuẩn hóa cho toàn Việt Nam từ file `vietnam.osm.pbf`, thay cho nhiều script riêng theo loại dịch vụ.
 
 ## Cần có trước
 
-- PBF đã được đăng ký ở giai đoạn 04.
+- PBF cố định đã được kiểm tra ở giai đoạn 04.
 - `categories.json` đã có mapping POI.
 - Hiểu các hàm đang có trong `poi.py`.
 
@@ -26,7 +26,7 @@ Vietnam PBF + categories.json
 
 ### Bước 1 — Cài thư viện của giai đoạn
 
-- Thêm `pyrosm`, `geopandas` và `pyarrow` vào `pyproject.toml`.
+- Giữ `geopandas` từ giai đoạn 04, sau đó thêm `pyrosm` và `pyarrow` vào `pyproject.toml`.
 - Chạy lại `python -m pip install -e .` trong môi trường Python đang dùng.
 - Kiểm tra import từng thư viện bằng một lệnh Python ngắn trước khi viết extraction.
 - Ghi cố định khoảng phiên bản sau khi nhóm đã chạy ổn để ba máy không dùng API quá khác nhau.
@@ -35,7 +35,7 @@ Kết quả cần thấy: cả ba thành viên đều import được thư việ
 
 ### Bước 2 — Chỉ đọc các POI và cột cần thiết
 
-- Tạo `poi_extract.py` và một hàm nhận `pbf_path`, `snapshot_id`, cấu hình category và `output_path`.
+- Tạo `poi_extract.py` và một hàm nhận `pbf_path`, cấu hình category và `output_path`.
 - Từ `categories.json`, lấy các tag cần lọc như `amenity`, `shop`, `highway` và `public_transport`.
 - Giữ các trường định danh OSM, tag cần phân loại, thông tin mô tả và geometry; bỏ sớm các cột chắc chắn không dùng.
 - Thử trước trên một PBF khu vực nhỏ để đo RAM và kiểm tra mapping, sau đó mới chạy toàn quốc.
@@ -80,7 +80,7 @@ Kết quả cần thấy: mỗi POI dùng cho routing có đúng một point kh�
 
 ### Bước 7 — Phát hiện và xử lý bản ghi trùng
 
-- Tạo khóa `(snapshot_id, osm_type, osm_id)`; chỉ `osm_id` là chưa đủ vì node và way có thể trùng số.
+- Tạo khóa `(osm_type, osm_id)`; chỉ `osm_id` là chưa đủ vì node và way có thể trùng số.
 - Thống kê khóa trùng và xem nguyên nhân trước khi xóa.
 - Nếu cùng một đối tượng xuất hiện do nhiều filter, gộp thông tin và giữ một hàng.
 - Sau khi xử lý, kiểm tra số hàng bằng số khóa duy nhất.
@@ -89,9 +89,9 @@ Kết quả cần thấy: không còn duplicate key nhưng không làm mất POI
 
 ### Bước 8 — Lưu GeoParquet và tạo view trong DuckDB
 
-- Ghi đầu ra vào `data/processed/{snapshot_id}/national/poi.parquet`.
+- Ghi đầu ra vào `data/processed/national/poi.parquet`.
 - Đọc lại file vừa ghi để xác nhận schema, CRS, số hàng và geometry.
-- Trong `sql/020_poi_views.sql`, tạo view dùng `read_parquet(...)`; view chỉ trỏ tới file, không sao chép toàn bộ POI vào DuckDB.
+- Trong `sql/010_poi_views.sql`, tạo view dùng `read_parquet(...)`; view chỉ trỏ tới file, không sao chép toàn bộ POI vào DuckDB.
 - Chạy một truy vấn `GROUP BY category` để xác nhận DuckDB đọc được kết quả.
 
 Kết quả cần thấy: Python và DuckDB cùng đọc được một file POI chuẩn hóa duy nhất.
@@ -103,14 +103,13 @@ src/ady201/poi.py
 src/ady201/poi_extract.py
 src/ady201/poi_enrich.py
 src/ady201/main.py
-sql/020_poi_views.sql
+sql/010_poi_views.sql
 pyproject.toml
 ```
 
 Schema tối thiểu:
 
 ```text
-snapshot_id
 osm_type
 osm_id
 category
@@ -129,12 +128,12 @@ quality_flags
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-national-poi --snapshot <snapshot_id>
+ady201 build-national-poi
 ```
 
 ## Quy tắc
 
-- Khóa duy nhất là `(snapshot_id, osm_type, osm_id)`.
+- Khóa duy nhất là `(osm_type, osm_id)`.
 - Không xóa POI chỉ vì thiếu tên.
 - Đọc cả tag `amenity`, `shop`, `highway` và `public_transport` khi cần.
 - Giữ dữ liệu gốc đủ để kiểm tra lại mapping.
@@ -181,13 +180,13 @@ ady201 build-national-poi --snapshot <snapshot_id>
 ## Đầu ra
 
 ```text
-data/processed/{snapshot_id}/national/poi.parquet
-outputs/quality/{snapshot_id}/poi_summary.csv
+data/processed/national/poi.parquet
+outputs/quality/poi_summary.csv
 ```
 
 ## Hoàn thành khi
 
 - Một lệnh xử lý được mọi category.
-- Không trùng khóa `(snapshot_id, osm_type, osm_id)`.
+- Không trùng khóa `(osm_type, osm_id)`.
 - Geometry không rỗng và nằm trong phạm vi Việt Nam.
 - DuckDB đọc được trực tiếp file Parquet đầu ra.

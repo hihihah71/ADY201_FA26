@@ -31,7 +31,7 @@ POI + representative point của cell
 ### Bước 1 — Load và kiểm tra walking graph
 
 - Thêm `osmnx` vào `pyproject.toml` nếu dùng hàm `nearest_nodes`, rồi chạy lại `python -m pip install -e .`.
-- Mở `walk.graphml` của đúng `snapshot_id` và `region_id`.
+- Mở `walk.graphml` của đúng `region_id`.
 - Chuyển `length_m` và `travel_time_s` về kiểu số nếu GraphML đọc chúng thành chuỗi.
 - Kiểm tra graph có node/edge và mọi weight dùng cho routing đều hữu hạn, không âm.
 - Dùng walking graph, không dùng driving graph cho chỉ số thời gian đi bộ.
@@ -147,7 +147,7 @@ unreachable_hospital
 Lệnh mục tiêu:
 
 ```powershell
-ady201 build-accessibility --region hanoi --snapshot <snapshot_id>
+ady201 build-accessibility --region hanoi
 ```
 
 ## Quy tắc
@@ -200,10 +200,10 @@ ady201 build-accessibility --region hanoi --snapshot <snapshot_id>
 ## Đầu ra
 
 ```text
-data/processed/{snapshot_id}/{region_id}/snap/poi_snap.parquet
-data/processed/{snapshot_id}/{region_id}/snap/cell_snap.parquet
-data/processed/{snapshot_id}/{region_id}/accessibility/cell_accessibility.parquet
-outputs/quality/{snapshot_id}/{region_id}/accessibility_summary.json
+data/processed/{region_id}/snap/poi_snap.parquet
+data/processed/{region_id}/snap/cell_snap.parquet
+data/processed/{region_id}/accessibility/cell_accessibility.parquet
+outputs/quality/{region_id}/accessibility_summary.json
 ```
 
 ## Hoàn thành khi

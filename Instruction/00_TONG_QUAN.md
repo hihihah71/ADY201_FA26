@@ -67,7 +67,7 @@ src/ady201/
 ├── settings.py
 ├── regions.py
 ├── database.py
-├── snapshots.py
+├── osm_input.py
 ├── boundaries.py
 ├── road_graph.py
 ├── hexagons.py
@@ -106,7 +106,7 @@ Vietnam OSM PBF + ranh giới khu vực
 | [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa project | Package và CLI cơ bản |
 | [02](02_CONFIG_VA_REGION_REGISTRY.md) | Tách tham số khỏi code | Thêm tỉnh/thành không sửa source |
 | [03](03_DUCKDB_CO_BAN.md) | Tạo DuckDB cơ bản | Connection và bảng region |
-| [04](04_SNAPSHOT_PBF_VA_BOUNDARY.md) | Quản lý PBF và ranh giới | Input có phiên bản rõ ràng |
+| [04](04_PBF_VA_BOUNDARY.md) | Chuẩn bị PBF và ranh giới | Một bộ input cố định cho toàn dự án |
 | [05](05_POI_TOAN_QUOC.md) | Chuẩn hóa POI toàn quốc | Một bộ POI dùng chung |
 | [06](06_REGION_PBF_VA_ROAD_GRAPH.md) | Tạo graph đường | Walking/driving graph |
 | [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Tạo ô phân tích | POI được gán vào từng ô |
@@ -114,7 +114,7 @@ Vietnam OSM PBF + ranh giới khu vực
 | [09](09_FEATURES_VA_CHI_SO.md) | Tạo đặc trưng và chỉ số | Một hàng dữ liệu cho mỗi ô |
 | [10](10_CLUSTERING_VA_BAN_DO.md) | Phân nhóm và trực quan hóa | Cluster, heatmap và báo cáo |
 | [11](11_TU_DONG_HOA_MOT_REGION.md) | Ghép thành một lệnh | `run-region` |
-| [12](12_RUN_ALL_VA_CAP_NHAT.md) | Chạy toàn quốc | `run-all` và cập nhật dữ liệu |
+| [12](12_RUN_ALL_TOAN_QUOC.md) | Chạy toàn quốc | `run-all` với một PBF cố định |
 
 ## Từ điển ngắn
 
@@ -140,7 +140,6 @@ Vietnam OSM PBF + ranh giới khu vực
 - **Metadata**: thông tin mô tả dữ liệu như nguồn, phiên bản và đường dẫn.
 - **Feature**: một cột số mô tả cell, ví dụ mật độ POI.
 - **Artifact**: file kết quả của một bước để bước sau sử dụng.
-- **Snapshot**: phiên bản dữ liệu tại một thời điểm.
 - **Resume**: chạy tiếp từ phần chưa hoàn thành.
 
 ## Phân công tổng quát

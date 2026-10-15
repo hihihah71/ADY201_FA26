@@ -13,7 +13,7 @@ Nhập một `region_id` và để Python tự chạy toàn bộ các bước th
 ## Luồng
 
 ```text
-region_id + snapshot_id tùy chọn
+region_id + vietnam.osm.pbf
               ↓
       kiểm tra đầu vào
               ↓
@@ -29,7 +29,7 @@ region_id + snapshot_id tùy chọn
 ### Bước 1 — Biến mỗi công đoạn thành một hàm gọi được
 
 - Mỗi step từ giai đoạn 04 đến 10 cần có một hàm Python công khai, không phụ thuộc vào biến global thay đổi ngầm.
-- Dùng đầu vào thống nhất như `region_id`, `snapshot_id`, config và các đường dẫn cần thiết.
+- Dùng đầu vào thống nhất như `region_id`, config, PBF cố định và các đường dẫn cần thiết.
 - Hàm trả về đường dẫn artifact hoặc một dictionary kết quả nhỏ; không chỉ tạo file rồi trả về `None`.
 - Chạy riêng từng hàm/lệnh thành công trước khi nối vào pipeline.
 
@@ -39,7 +39,7 @@ Kết quả cần thấy: có thể gọi và kiểm tra từng step độc lậ
 
 - Trong `pipeline.py`, tạo một danh sách có thứ tự đúng như phần “Thứ tự step” bên dưới.
 - Mỗi phần tử cần có tên step, hàm cần gọi, input bắt buộc và output dự kiến.
-- Không tìm file bằng “file mới nhất”; mọi đường dẫn phải được tạo từ `snapshot_id` và `region_id` hiện tại.
+- Mọi đường dẫn output phải được tạo từ `region_id`; PBF luôn lấy qua `get_osm_path()`.
 - Pipeline duyệt danh sách tuần tự trong phiên bản đầu.
 
 Kết quả cần thấy: đọc một cấu trúc duy nhất là biết pipeline chạy bước nào trước và bước nào sau.
@@ -47,17 +47,17 @@ Kết quả cần thấy: đọc một cấu trúc duy nhất là biết pipelin
 ### Bước 3 — Kiểm tra đầu vào trước khi chạy step
 
 - Xác nhận region tồn tại và `enabled=true`.
-- Xác nhận snapshot tồn tại; nếu người dùng không truyền thì truy vấn đúng một snapshot active.
-- Trước từng step, kiểm tra file/bảng phụ thuộc tồn tại, không rỗng và thuộc đúng snapshot/region.
+- Xác nhận `data/raw/osm/vietnam.osm.pbf` tồn tại và không rỗng.
+- Trước từng step, kiểm tra file/bảng phụ thuộc tồn tại, không rỗng và thuộc đúng region.
 - Báo thiếu input bằng tên step và đường dẫn cụ thể, không để thư viện sâu bên trong báo lỗi khó hiểu.
 
 Kết quả cần thấy: pipeline dừng sớm với lỗi dễ sửa nếu thiếu boundary, graph hoặc Parquet.
 
 ### Bước 4 — Tạo bảng trạng thái chạy
 
-- Tạo `sql/040_run_state.sql` ở giai đoạn này.
-- `pipeline_runs` lưu một lần chạy: `run_id`, `snapshot_id`, `region_id`, trạng thái, thời gian bắt đầu/kết thúc.
-- `pipeline_steps` lưu từng bước: `run_id`, `step_name`, trạng thái, `output_path`, checksum hoặc metadata kiểm tra, thời gian và `error_message`.
+- Tạo `sql/030_run_state.sql` ở giai đoạn này.
+- `pipeline_runs` lưu một lần chạy: `run_id`, `region_id`, trạng thái, thời gian bắt đầu/kết thúc.
+- `pipeline_steps` lưu từng bước: `run_id`, `step_name`, trạng thái, `output_path`, thời gian và `error_message`.
 - Khi tạo run mới, thêm các step với trạng thái `pending`; trước khi gọi hàm đổi thành `running`, sau khi thành công đổi thành `completed`.
 
 Kết quả cần thấy: DuckDB cho biết lần chạy nào đang dở và bước cuối cùng đã thành công.
@@ -74,27 +74,27 @@ Kết quả cần thấy: `run-status` chỉ ra chính xác step lỗi và nguy�
 ### Bước 6 — Cài đặt `--resume` an toàn
 
 - Chỉ skip khi trạng thái là `completed` và output path vẫn tồn tại.
-- Kiểm tra thêm file không rỗng, schema/metadata đúng và checksum/config liên quan chưa thay đổi.
+- Kiểm tra thêm file không rỗng, schema đúng và config liên quan chưa thay đổi.
 - Nếu output mất hoặc config đầu vào đổi, chạy lại step đó và tất cả step phụ thuộc phía sau.
-- Step phải idempotent: chạy lại sẽ thay đúng artifact của cùng run/snapshot, không nối thêm duplicate.
+- Step phải idempotent: chạy lại sẽ thay đúng artifact của region, không nối thêm duplicate.
 
 Kết quả cần thấy: xóa output của một step rồi chạy `--resume` sẽ tạo lại từ step đó, không bỏ qua sai.
 
-### Bước 7 — Chọn snapshot rõ ràng
+### Bước 7 — Dùng một PBF chung trong toàn bộ run
 
-- Nếu CLI có `--snapshot`, kiểm tra ID đó và dùng chính xác nó.
-- Nếu không có, truy vấn hàng `is_active = true`; nếu không có hoặc có nhiều hơn một thì dừng.
-- Ghi snapshot đã chọn vào run state và mọi artifact.
-- Snapshot không được thay đổi giữa chừng trong cùng một run dù active snapshot được cập nhật bởi tiến trình khác.
+- Pipeline gọi `get_osm_path()` đúng một lần khi bắt đầu.
+- Truyền `Path` này cho bước tạo POI và cắt PBF khu vực; không tìm PBF ở thư mục khác.
+- Không nhận tham số `--snapshot` và không truy vấn active snapshot trong DuckDB.
+- Không thay `vietnam.osm.pbf` cho tới khi `run-region` hoặc `run-all` kết thúc.
 
-Kết quả cần thấy: toàn bộ output của một run truy về cùng một PBF snapshot.
+Kết quả cần thấy: mọi artifact trong một lần chạy đều bắt nguồn từ cùng file `vietnam.osm.pbf`.
 
 ### Bước 8 — Thêm CLI cho người dùng cuối
 
-- `run-region` nhận `--region`, tùy chọn `--snapshot` và `--resume`.
+- `run-region` nhận `--region` và tùy chọn `--resume`.
 - `run-status` nhận region hoặc run ID và hiển thị từng step theo đúng thứ tự.
 - `main.py` chỉ đọc tham số rồi gọi hàm trong `pipeline.py`; không đặt logic xử lý dữ liệu ở CLI.
-- Cuối run, ghi `run_summary.json` gồm trạng thái, snapshot, thời gian và đường dẫn output chính.
+- Cuối run, ghi `run_summary.json` gồm trạng thái, region, thời gian và đường dẫn output chính.
 
 Kết quả cần thấy: Hà Nội hoặc Đà Nẵng chạy bằng một lệnh, không cần mở Python hay DuckDB thủ công.
 
@@ -104,7 +104,7 @@ Kết quả cần thấy: Hà Nội hoặc Đà Nẵng chạy bằng một lện
 src/ady201/pipeline.py
 src/ady201/run_state.py
 src/ady201/main.py
-sql/040_run_state.sql
+sql/030_run_state.sql
 ```
 
 Thứ tự step:
@@ -129,7 +129,7 @@ Lệnh mục tiêu:
 
 ```powershell
 ady201 run-region --region hanoi
-ady201 run-region --region danang --snapshot <snapshot_id>
+ady201 run-region --region danang
 ady201 run-region --region hanoi --resume
 ady201 run-status --region hanoi
 ```
@@ -148,7 +148,7 @@ ady201 run-status --region hanoi
 ## Lỗi thường gặp
 
 - Thấy trạng thái `completed` là skip ngay dù file output đã bị xóa hoặc config đã đổi.
-- Dùng active snapshot lại ở từng step, khiến một run có thể trộn hai snapshot.
+- Thay `vietnam.osm.pbf` khi pipeline đang chạy, khiến các artifact không còn cùng nguồn.
 - Bắt lỗi nhưng không trả exit code lỗi, làm batch hiểu nhầm region đã thành công.
 - Đặt toàn bộ logic vào `main.py`, khiến khó gọi lại và khó xác định step lỗi.
 
@@ -157,14 +157,14 @@ ady201 run-status --region hanoi
 - Gọi hàm theo thứ tự.
 - Exception và `try/except`.
 - Idempotent: chạy lại không làm sai dữ liệu.
-- Checksum và cách xác định output còn hợp lệ.
+- Cách kiểm tra output tồn tại, không rỗng và đúng schema.
 - Resume pipeline.
 
 ## Tìm hiểu thêm
 
 - Từ khóa: `Python pipeline steps pattern`.
 - Từ khóa: `idempotent data pipeline`.
-- Từ khóa: `checksum cache invalidation`.
+- Từ khóa: `pipeline output validation`.
 
 ## Phân công
 
@@ -186,7 +186,7 @@ ady201 run-status --region hanoi
 ## Đầu ra
 
 ```text
-outputs/{snapshot_id}/{region_id}/run_summary.json
+outputs/{region_id}/run_summary.json
 ```
 
 Cùng toàn bộ artifact của các giai đoạn 04 đến 10.
