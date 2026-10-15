@@ -1,6 +1,6 @@
 {
-    "walking_speed": 5000,
-    "reached_in_time": [5, 10, 15],
+    "walking_speed_mps": 5000,
+    "accessibility_minutes": [5, 10, 15],
     "hexagon_size": 200,
-    "road_buffer": 1
+    "road_buffer_m": 1
 }
