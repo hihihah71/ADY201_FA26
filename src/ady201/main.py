@@ -4,7 +4,7 @@ from pathlib import Path
 from ady201 import __version__
 from ady201.poi import normalize_poi_file
 from ady201.regions import get_bbox
-from ady201.database import initialize_database
+from ady201.database import initialize_database, check_database
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -20,6 +20,8 @@ def create_parser() -> argparse.ArgumentParser:
     get_bbox_command.add_argument("location", type=Path)
 
     init_db_command = commands.add_parser("init-db")
+
+    check_db_command = commands.add_parser("check-db")
 
     return parser
 
@@ -37,6 +39,7 @@ def main(arguments: list[str] | None = None) -> int:
     if options.command == "init-db":
         initialize_database()
 
-    
+    if options.command == "check-db":
+        check_database()
         
     return 0
