@@ -43,7 +43,7 @@ Kết quả cần thấy: batch hiển thị danh sách region cụ thể và kh
 ### Bước 2 — Kiểm tra đầu vào dùng chung
 
 - Gọi `get_osm_path()` một lần trước vòng lặp.
-- Dừng toàn bộ batch nếu PBF thiếu, rỗng hoặc Osmium không đọc được.
+- Dừng toàn bộ batch nếu PBF thiếu, rỗng hoặc Pyrosm không mở được.
 - Truyền cùng một `Path` cho mọi lần gọi `run_region()`.
 - Không thay file PBF cho đến khi batch kết thúc.
 

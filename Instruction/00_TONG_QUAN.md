@@ -46,7 +46,7 @@ Vì vậy, việc nên làm ngay là hoàn thành giai đoạn 02 rồi hoàn t�
 
 | Công cụ | Trách nhiệm |
 |---|---|
-| Python | Đọc file, gọi từng bước, xử lý bản đồ, graph, Dijkstra và clustering |
+| Python | Dùng Pyrosm đọc PBF, gọi từng bước, xử lý bản đồ, graph, Dijkstra và clustering |
 | DuckDB | Chạy SQL, lưu metadata/trạng thái, tổng hợp bảng và kiểm tra dữ liệu |
 | Parquet/GeoParquet | Lưu bảng lớn và dữ liệu có geometry |
 | GraphML | Lưu graph đường để dùng lại |
@@ -69,7 +69,6 @@ src/ady201/
 ├── database.py
 ├── osm_input.py
 ├── boundaries.py
-├── road_graph.py
 ├── hexagons.py
 ├── snap.py
 ├── accessibility.py
@@ -108,7 +107,7 @@ Vietnam OSM PBF + ranh giới khu vực
 | [03](03_DUCKDB_CO_BAN.md) | Tạo DuckDB cơ bản | Connection và bảng region |
 | [04](04_PBF_VA_BOUNDARY.md) | Chuẩn bị PBF và ranh giới | Một bộ input cố định cho toàn dự án |
 | [05](05_POI_TOAN_QUOC.md) | Chuẩn hóa POI toàn quốc | Một bộ POI dùng chung |
-| [06](06_REGION_PBF_VA_ROAD_GRAPH.md) | Tạo graph đường | Walking/driving graph |
+| [06](06_PYROSM_VA_ROAD_GRAPH.md) | Pyrosm tạo graph đường | Walking/driving graph |
 | [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Tạo ô phân tích | POI được gán vào từng ô |
 | [08](08_SNAP_VA_ACCESSIBILITY.md) | Tính đường đi | Thời gian tới dịch vụ gần nhất |
 | [09](09_FEATURES_VA_CHI_SO.md) | Tạo đặc trưng và chỉ số | Một hàng dữ liệu cho mỗi ô |
@@ -123,6 +122,7 @@ Vietnam OSM PBF + ranh giới khu vực
 - **DuckDB**: database chạy trực tiếp trong Python và lưu thành một file.
 - **Region**: một khu vực cần phân tích, thường là một tỉnh hoặc thành phố.
 - **PBF**: file OpenStreetMap đã nén, chứa node, way và relation.
+- **Pyrosm**: thư viện Python đọc PBF và chuyển mạng đường thành node/edge/graph.
 - **Node**: một điểm trong mạng đường.
 - **Edge**: đoạn đường nối hai node.
 - **Graph**: tập hợp node và edge.

@@ -83,7 +83,7 @@ Kết quả cần thấy: xóa output của một step rồi chạy `--resume` s
 ### Bước 7 — Dùng một PBF chung trong toàn bộ run
 
 - Pipeline gọi `get_osm_path()` đúng một lần khi bắt đầu.
-- Truyền `Path` này cho bước tạo POI và cắt PBF khu vực; không tìm PBF ở thư mục khác.
+- Truyền `Path` này cho bước tạo POI và bước Pyrosm tạo network; không tìm PBF ở thư mục khác.
 - Không nhận tham số `--snapshot` và không truy vấn active snapshot trong DuckDB.
 - Không thay `vietnam.osm.pbf` cho tới khi `run-region` hoặc `run-all` kết thúc.
 
@@ -111,7 +111,6 @@ Thứ tự step:
 
 ```text
 prepare_boundary
-extract_region_pbf
 build_network
 build_grid
 select_region_pois

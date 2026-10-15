@@ -26,7 +26,7 @@ Vietnam PBF + categories.json
 
 ### Bước 1 — Cài thư viện của giai đoạn
 
-- Giữ `geopandas` từ giai đoạn 04, sau đó thêm `pyrosm` và `pyarrow` vào `pyproject.toml`.
+- Giữ `pyrosm` và `geopandas` từ giai đoạn 04, sau đó thêm `pyarrow` vào `pyproject.toml`.
 - Chạy lại `python -m pip install -e .` trong môi trường Python đang dùng.
 - Kiểm tra import từng thư viện bằng một lệnh Python ngắn trước khi viết extraction.
 - Ghi cố định khoảng phiên bản sau khi nhóm đã chạy ổn để ba máy không dùng API quá khác nhau.
@@ -38,7 +38,7 @@ Kết quả cần thấy: cả ba thành viên đều import được thư việ
 - Tạo `poi_extract.py` và một hàm nhận `pbf_path`, cấu hình category và `output_path`.
 - Từ `categories.json`, lấy các tag cần lọc như `amenity`, `shop`, `highway` và `public_transport`.
 - Giữ các trường định danh OSM, tag cần phân loại, thông tin mô tả và geometry; bỏ sớm các cột chắc chắn không dùng.
-- Thử trước trên một PBF khu vực nhỏ để đo RAM và kiểm tra mapping, sau đó mới chạy toàn quốc.
+- Thử trước bằng `OSM(pbf_path, bounding_box=hanoi_boundary)` để đo RAM và kiểm tra mapping, sau đó mới bỏ boundary để tạo POI toàn quốc.
 
 Kết quả cần thấy: bảng POI thô nhỏ hơn dữ liệu OSM gốc và vẫn còn đủ tag để kiểm tra lại.
 
