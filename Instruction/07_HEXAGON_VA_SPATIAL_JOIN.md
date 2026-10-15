@@ -6,7 +6,7 @@ Chia mỗi khu vực thành các cell thống nhất và xác định POI thuộ
 
 ## Cần có trước
 
-- Boundary hợp lệ từ giai đoạn 04.
+- `boundary_path` và `network_bbox` từ `regions.json`.
 - POI toàn quốc từ giai đoạn 05.
 - Graph đường từ giai đoạn 06.
 
@@ -82,7 +82,8 @@ Kết quả cần thấy: mỗi cell có đúng một điểm đại diện khô
 
 ### Bước 7 — Gán POI vào region và cell
 
-- Lọc POI toàn quốc theo extraction boundary trước để giảm dữ liệu cần join.
+- Lọc POI toàn quốc theo `network_bbox` trước để giảm dữ liệu cần join.
+- Chuyển bốn giá trị bbox thành hình chữ nhật bằng `shapely.geometry.box(min_lon, min_lat, max_lon, max_lat)`.
 - Dùng `geopandas.sjoin()` giữa point POI và polygon cell với predicate phù hợp.
 - Xử lý riêng POI nằm đúng đường biên để mỗi POI density chỉ nhận một `cell_id`; quy tắc chọn phải cố định, ví dụ lấy `cell_id` nhỏ nhất sau khi sắp xếp.
 - Kiểm tra số POI trước join, số được gán, số chưa gán và số bị gán nhiều lần.
@@ -92,8 +93,8 @@ Kết quả cần thấy: mỗi POI nằm trong analysis boundary có đúng m�
 ### Bước 8 — Phân biệt POI phân tích và POI hỗ trợ routing
 
 - Gắn `membership_scope = analysis` cho POI nằm trong boundary gốc; các POI này dùng cho count và density.
-- Gắn `membership_scope = buffer` cho POI chỉ nằm trong vùng buffer; các POI này chỉ làm đích accessibility.
-- Không cộng POI buffer vào số dịch vụ của cell trong vùng.
+- Gắn `membership_scope = network` cho POI nằm trong `network_bbox` nhưng ngoài boundary; các POI này chỉ làm đích accessibility.
+- Không cộng POI có scope `network` vào số dịch vụ của cell trong vùng.
 - Ghi chung một file membership hoặc hai file, nhưng schema phải thể hiện rõ scope.
 
 Kết quả cần thấy: một bệnh viện ngay ngoài biên có thể dùng để tính thời gian tiếp cận nhưng không làm tăng POI count của khu vực.
@@ -130,7 +131,7 @@ ady201 build-grid --region hanoi
 - Dùng cùng H3 resolution nếu muốn so sánh giữa các khu vực.
 - Cell biên dùng diện tích sau khi clip.
 - POI trong boundary gốc dùng tính count và density.
-- POI trong vùng buffer chỉ bổ sung cho tính accessibility.
+- POI ngoài boundary nhưng trong `network_bbox` chỉ bổ sung cho tính accessibility.
 - POI nằm đúng đường biên chỉ được gán một lần theo quy tắc cố định.
 - Không dùng tọa độ độ để tính diện tích km².
 

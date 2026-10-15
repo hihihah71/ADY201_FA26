@@ -194,6 +194,6 @@ outputs/national/report/
 
 - Batch tiếp tục khi cố ý làm một region bị lỗi.
 - `--resume` chỉ chạy phần thiếu hoặc failed.
-- POI buffer không bị tính hai lần trong dữ liệu toàn quốc.
+- POI có scope `network` không bị tính vào mật độ dịch vụ của region.
 - Khóa `(region_id, cell_id)` không trùng.
 - Mọi region trong batch dùng cùng một file PBF cố định.

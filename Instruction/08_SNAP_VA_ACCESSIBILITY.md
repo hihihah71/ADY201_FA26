@@ -40,7 +40,7 @@ Kết quả cần thấy: một lệnh shortest path mẫu chạy được với
 
 ### Bước 2 — Snap POI vào node gần nhất
 
-- Chỉ lấy POI thuộc `analysis` hoặc `buffer` của region hiện tại.
+- Chỉ lấy POI thuộc `analysis` hoặc `network` của region hiện tại.
 - Gửi toàn bộ longitude/latitude theo mảng vào hàm nearest-node thay vì lặp từng hàng; nếu dùng OSMnx thì `X` là longitude và `Y` là latitude.
 - Lưu `node_id`, `snap_distance_m` và `status` bên cạnh khóa POI.
 - Đặt ngưỡng cảnh báo snap quá xa trong config; không tự xóa hàng mà chưa xem trên bản đồ.
@@ -61,7 +61,7 @@ Kết quả cần thấy: mỗi cell có `node_id` đầu hành trình hoặc m�
 - Group POI đã snap theo `category`.
 - Với mỗi category, lấy tập `node_id` duy nhất; nhiều POI cùng snap vào một node chỉ cần một source cho Dijkstra.
 - Vẫn giữ số POI riêng để báo cáo, không nhầm số source node với số dịch vụ.
-- Nếu một category không có POI trong cả analysis và buffer, đánh dấu `no_source`, không gọi Dijkstra với tập rỗng.
+- Nếu một category không có POI trong cả analysis và network bbox, đánh dấu `no_source`, không gọi Dijkstra với tập rỗng.
 
 Kết quả cần thấy: có dictionary dạng `category -> set(node_id)` để đưa vào thuật toán.
 

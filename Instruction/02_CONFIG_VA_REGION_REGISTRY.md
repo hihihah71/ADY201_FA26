@@ -41,8 +41,7 @@ Tên tham số phải kèm đơn vị để tránh hiểu nhầm:
 {
   "walking_speed_mps": 1.4,
   "accessibility_minutes": [5, 10, 15],
-  "hex_resolution": 9,
-  "road_buffer_m": 1000
+  "hex_resolution": 9
 }
 ```
 
@@ -86,30 +85,32 @@ python -c "from ady201.settings import load_project_settings; print(load_project
 
 ### Bước 3 — Chuẩn hóa `regions.json`
 
-Mỗi region dùng cùng bốn trường tối thiểu:
+Mỗi region dùng cùng năm trường tối thiểu:
 
 ```json
 {
   "region_id": "hanoi",
   "name": "Hà Nội",
   "boundary_path": "data/boundaries/v1/hanoi.geojson",
+  "network_bbox": [105.70, 20.85, 106.05, 21.25],
   "enabled": true
 }
 ```
 
 - `region_id` viết thường, không dấu và không đổi sau khi đã có dữ liệu.
 - `name` chỉ dùng để hiển thị.
-- `boundary_path` là đường dẫn tương đối từ project.
+- `boundary_path` là đường dẫn tương đối dùng cho hexagon và phân tích không gian từ giai đoạn 07.
+- `network_bbox` có thứ tự `[min_lon, min_lat, max_lon, max_lat]` và được Pyrosm dùng để lấy mạng đường.
 - `enabled=false` nghĩa là tạm thời không chạy region đó.
 
-Kết quả cần thấy: Hà Nội và Đà Nẵng có hai `region_id` khác nhau và mỗi region trỏ tới một file boundary riêng.
+Kết quả cần thấy: Hà Nội và Đà Nẵng có `region_id`, boundary và network bbox riêng.
 
 ### Bước 4 — Viết hàm tìm region trong `regions.py`
 
 - `load_regions()` trả toàn bộ danh sách.
 - `get_region(region_id)` trả đúng một region.
 - Nếu không tìm thấy, báo lỗi có danh sách ID hợp lệ.
-- Nominatim/get-bbox chỉ dùng hỗ trợ tra cứu; boundary trong registry mới là đầu vào chính thức của phân tích.
+- Nominatim/get-bbox có thể hỗ trợ lấy `network_bbox`; boundary trong registry vẫn là đầu vào cho phân tích hexagon.
 
 Kết quả cần thấy: `get_region("hanoi")` trả đúng cấu hình Hà Nội, còn ID sai tạo thông báo có danh sách ID hợp lệ.
 
@@ -121,7 +122,7 @@ Kiểm tra ngay sau khi đọc:
 - Các trường bắt buộc không rỗng.
 - `walking_speed_mps` lớn hơn 0.
 - Các ngưỡng phút là số dương và tăng dần.
-- `road_buffer_m` không âm.
+- `network_bbox` có đúng bốn số và `min` nhỏ hơn `max`.
 
 Không đợi tới giai đoạn graph mới báo config sai.
 
@@ -143,7 +144,7 @@ Kết quả cần thấy: `ady201 list-regions` hiển thị dữ liệu mới n
 
 ## Lỗi thường gặp
 
-- Giữ các key cũ như `walking_speed`, `hexagon_size`, `road_buffer` nhưng không ghi đơn vị.
+- Giữ các key cũ như `walking_speed`, `hexagon_size` nhưng không ghi đơn vị.
 - Để `regions.json` rỗng rồi các bước sau phải hard-code Hà Nội.
 - Chỉ lưu bounding box từ Nominatim và coi đó là boundary thật; bounding box là hình chữ nhật, không phải ranh giới hành chính.
 - Đổi `region_id` sau khi đã có output, làm đường dẫn và khóa dữ liệu cũ không còn khớp.
@@ -164,7 +165,6 @@ src/ady201/main.py
 - Tốc độ đi bộ.
 - Các mốc 5, 10 và 15 phút.
 - Kích thước hexagon.
-- Khoảng buffer khi cắt mạng đường.
 
 `categories.json` lưu mapping tag OSM sang nhóm như bệnh viện, trường học và siêu thị.
 
@@ -173,6 +173,7 @@ src/ady201/main.py
 - `region_id` không dấu, ví dụ `hanoi`.
 - Tên hiển thị.
 - Đường dẫn boundary.
+- Bounding box dùng để đọc mạng đường.
 - Trạng thái `enabled`.
 
 ## Quy tắc
@@ -204,7 +205,7 @@ src/ady201/main.py
 
 ### Hiếu
 
-- Chốt các trường liên quan boundary, buffer và loại mạng đường.
+- Chốt `network_bbox`, boundary và loại mạng đường.
 - Kiểm tra dữ liệu Hà Nội và Đà Nẵng.
 
 ### Quang

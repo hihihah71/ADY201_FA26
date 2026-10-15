@@ -105,7 +105,7 @@ Vietnam OSM PBF + ranh giới khu vực
 | [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa project | Package và CLI cơ bản |
 | [02](02_CONFIG_VA_REGION_REGISTRY.md) | Tách tham số khỏi code | Thêm tỉnh/thành không sửa source |
 | [03](03_DUCKDB_CO_BAN.md) | Tạo DuckDB cơ bản | Connection và bảng region |
-| [04](04_PBF_VA_BOUNDARY.md) | Chuẩn bị PBF và ranh giới | Một bộ input cố định cho toàn dự án |
+| [04](04_PBF_CO_DINH.md) | Chuẩn bị PBF | Một file OSM cố định cho toàn dự án |
 | [05](05_POI_TOAN_QUOC.md) | Chuẩn hóa POI toàn quốc | Một bộ POI dùng chung |
 | [06](06_PYROSM_VA_ROAD_GRAPH.md) | Pyrosm tạo graph đường | Walking/driving graph |
 | [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Tạo ô phân tích | POI được gán vào từng ô |
@@ -130,7 +130,6 @@ Vietnam OSM PBF + ranh giới khu vực
 - **Dijkstra**: thuật toán tìm đường có tổng trọng số nhỏ nhất.
 - **CRS**: hệ tọa độ dùng để đặt và đo geometry.
 - **Geometry**: hình học không gian dạng điểm, đường hoặc vùng.
-- **Buffer**: vùng được nới rộng thêm một khoảng quanh boundary.
 - **Hexagon/cell**: ô không gian dùng làm đơn vị phân tích.
 - **Representative point**: một điểm đại diện nằm bên trong polygon.
 - **Spatial join**: ghép dữ liệu dựa trên vị trí thay vì dựa trên ID.

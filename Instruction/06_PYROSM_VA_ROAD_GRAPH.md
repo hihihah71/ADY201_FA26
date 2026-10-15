@@ -2,23 +2,23 @@
 
 ## Mục tiêu
 
-Dùng Pyrosm đọc trực tiếp `vietnam.osm.pbf`, lọc mạng đường theo boundary buffer và tạo walking/driving graph cho từng region.
+Dùng Pyrosm đọc trực tiếp `vietnam.osm.pbf`, lọc mạng đường theo `network_bbox` và tạo walking/driving graph cho từng region.
 
 Không dùng Osmium và không tạo file `region.osm.pbf` trung gian.
 
 ## Cần có trước
 
 - `vietnam.osm.pbf` và `get_osm_path()` từ giai đoạn 04.
-- Analysis boundary và extraction boundary của region.
+- `network_bbox` của region trong `regions.json`.
 - `pyrosm`, `geopandas` và `pyarrow` đã có trong dependency.
 - Hiểu node, edge và graph có hướng ở mức cơ bản.
 
 ## Luồng
 
 ```text
-vietnam.osm.pbf + extraction boundary
-                    ↓ Pyrosm OSM(..., bounding_box=polygon)
-             dữ liệu trong vùng buffer
+vietnam.osm.pbf + network_bbox
+                    ↓ Pyrosm OSM(..., bounding_box=bbox)
+              dữ liệu trong bbox
                  ↙                     ↘
        get_network("walking")   get_network("driving")
                  ↓                     ↓
@@ -29,40 +29,38 @@ vietnam.osm.pbf + extraction boundary
 
 ## Vì sao không cần cắt PBF trước
 
-- Pyrosm nhận Polygon hoặc MultiPolygon trong tham số `bounding_box`.
+- Pyrosm nhận danh sách `[min_lon, min_lat, max_lon, max_lat]` trong tham số `bounding_box`.
 - Mọi bước vẫn đọc cùng file `vietnam.osm.pbf` nhưng chỉ trả dữ liệu thuộc vùng cần thiết.
-- Boundary đã buffer giúp giữ thêm đường gần biên để tuyến không bị cắt quá sớm.
+- `network_bbox` được khai báo trực tiếp trong `regions.json`, không cần tạo boundary buffer.
 - Project bớt một chương trình bên ngoài và bớt một loại file trung gian.
 
 ## Các bước thực hiện
 
-### Bước 1 — Chuẩn bị ba input
+### Bước 1 — Chuẩn bị input
 
 - Thêm `networkx` vào `pyproject.toml` rồi chạy `python -m pip install -e .`.
 - Lấy `pbf_path` bằng `get_osm_path()`.
 - Lấy region bằng `get_region(region_id)`.
-- Đọc `extraction_boundary.geojson` của region bằng GeoPandas.
-- Xác nhận boundary chỉ có một geometry hợp lệ và đang ở EPSG:4326.
+- Lấy `network_bbox` từ region theo thứ tự `[min_lon, min_lat, max_lon, max_lat]`.
 
-Kết quả cần thấy: hàm build network có đủ `pbf_path`, `region_id` và extraction boundary hợp lệ.
+Kết quả cần thấy: hàm build network có `pbf_path`, `region_id` và bốn giá trị bbox.
 
-### Bước 2 — Tạo Pyrosm reader có giới hạn không gian
+### Bước 2 — Tạo Pyrosm reader theo bbox
 
-- Lấy Shapely geometry từ GeoDataFrame boundary.
-- Khởi tạo `OSM(str(pbf_path), bounding_box=boundary_geometry)`.
-- Không khởi tạo `OSM(str(pbf_path))` không có boundary trong luồng theo region, vì như vậy Pyrosm có thể đọc dữ liệu toàn quốc không cần thiết.
-- Nếu Pyrosm báo boundary hoặc PBF không hợp lệ, dừng ngay trước khi tạo graph.
+- Khởi tạo `OSM(str(pbf_path), bounding_box=network_bbox)`.
+- Không khởi tạo `OSM(str(pbf_path))` không có bbox trong luồng theo region, vì như vậy Pyrosm có thể đọc dữ liệu toàn quốc không cần thiết.
+- Nếu Pyrosm báo bbox hoặc PBF không hợp lệ, dừng trước khi tạo graph.
 
 Code mục tiêu:
 
 ```python
 osm = OSM(
     str(pbf_path),
-    bounding_box=boundary_geometry,
+    bounding_box=network_bbox,
 )
 ```
 
-Kết quả cần thấy: một reader chỉ áp dụng cho vùng buffer của region hiện tại.
+Kết quả cần thấy: một reader chỉ áp dụng cho bbox của region hiện tại.
 
 ### Bước 3 — Đọc walking nodes và edges
 
@@ -169,16 +167,16 @@ ady201 build-network --region hanoi
 
 ## Các hàm nên có trong `network.py`
 
-- `read_network(pbf_path, boundary, network_type)`: gọi Pyrosm và trả node/edge.
+- `read_network(pbf_path, network_bbox, network_type)`: gọi Pyrosm và trả node/edge.
 - `create_graph(nodes, edges)`: gọi `OSM.to_graph()`.
 - `add_walking_time(graph, walking_speed_mps)`: thêm thời gian đi bộ.
 - `add_driving_time(graph)`: thêm thời gian lái xe.
 - `save_network(region_id, ...)`: ghi GraphML, GeoParquet và summary.
-- `build_network(region_id)`: lấy PBF từ `osm_input.py`, lấy boundary từ `boundaries.py` rồi gọi các hàm trên theo đúng thứ tự.
+- `build_network(region_id)`: lấy PBF từ `osm_input.py`, lấy bbox từ `regions.py` rồi gọi các hàm trên theo đúng thứ tự.
 
 ## Quy tắc
 
-- Pyrosm luôn nhận extraction boundary khi xử lý một region.
+- Pyrosm luôn nhận `network_bbox` khi xử lý một region.
 - Graph dùng `MultiDiGraph`.
 - Edge routing có `u`, `v`, `key`, `length_m` và `travel_time_s`.
 - Không xóa component nhỏ trước khi tạo quality report.
@@ -187,15 +185,15 @@ ady201 build-network --region hanoi
 
 ## Lỗi thường gặp
 
-- Quên truyền boundary khiến Pyrosm đọc mạng đường toàn Việt Nam.
-- Truyền boundary không ở EPSG:4326.
-- Dùng analysis boundary thay vì extraction boundary và làm graph đứt gần biên.
+- Quên truyền bbox khiến Pyrosm đọc mạng đường toàn Việt Nam.
+- Đảo thứ tự latitude và longitude trong bbox.
+- Chọn bbox quá nhỏ khiến điểm cần phân tích nằm ngoài graph.
 - Tự tính lại chiều dài trên tọa độ độ dù Pyrosm đã có `length` theo mét.
 - Load GraphML rồi đưa weight dạng chuỗi vào Dijkstra.
 
 ## Cần học trước
 
-- `pyrosm.OSM` và tham số `bounding_box`.
+- `pyrosm.OSM` và bbox `[minx, miny, maxx, maxy]`.
 - `get_network(..., nodes=True)`.
 - `OSM.to_graph()`.
 - Node, edge, `MultiDiGraph` và weight.
@@ -203,7 +201,7 @@ ady201 build-network --region hanoi
 
 ## Tìm hiểu thêm
 
-- Từ khóa: `Pyrosm bounding box polygon`.
+- Từ khóa: `Pyrosm bounding box list`.
 - Từ khóa: `Pyrosm get_network walking driving`.
 - Từ khóa: `Pyrosm to_graph NetworkX`.
 - Từ khóa: `NetworkX MultiDiGraph`.

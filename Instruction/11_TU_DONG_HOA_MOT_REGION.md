@@ -110,7 +110,6 @@ sql/030_run_state.sql
 Thứ tự step:
 
 ```text
-prepare_boundary
 build_network
 build_grid
 select_region_pois
