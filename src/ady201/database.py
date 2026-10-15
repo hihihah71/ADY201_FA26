@@ -28,3 +28,30 @@ def initialize_database(
         connection.execute(schema_sql)
     finally:
         connection.close()
+
+def check_database():
+    database_path: Path = DATABASE_PATH
+    database_path = Path(database_path)
+
+    if not database_path.is_file():
+        return {"ready": False, "region_count": 0}
+
+    connection = connect_database(database_path)
+
+    try:
+        table_exists = connection.execute("""
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_name = 'regions'
+            """).fetchone()[0]
+
+        if table_exists == 0:
+            return {"ready": False, "region_count": 0}
+        
+        region_count = connection.execute("""
+            SELECT COUNT(*) FROM REGIONS
+            """).fetchone()[0]
+        
+        return {"ready": True,"region_count":region_count}
+    finally:
+        connection.close()
