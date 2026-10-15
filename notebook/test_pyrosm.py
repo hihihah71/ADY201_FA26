@@ -12,21 +12,28 @@ bbox = [
 ]
 
 osm = OSM(
-    str(pbf_path),
-    bounding_box=bbox
+    str(pbf_path)
 )
 
-nodes, edges = osm.get_network(
-    network_type="walking",
-    nodes=True
-)
+boundary = osm.get_boundaries(name="Thanh Hóa")
 
-print("=== NODES ===")
-print(nodes.head())
+geom = boundary.geometry.iloc[0]
 
-print("\n=== EDGES ===")
-print(edges.head())
+boundary.plot()
 
-print("\nĐọc thành công")
-print("Nodes:", len(nodes))
-print("Edges:", len(edges))
+
+
+# nodes, edges = osm.get_network(
+#     network_type="walking",
+#     nodes=True
+# )
+
+# print("=== NODES ===")
+# print(nodes.head())
+
+# print("\n=== EDGES ===")
+# print(edges.head())
+
+# print("\nĐọc thành công")
+# print("Nodes:", len(nodes))
+# print("Edges:", len(edges))
