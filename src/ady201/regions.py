@@ -17,4 +17,6 @@ def get_bbox(location):
     r.raise_for_status()
     data = r.json()
 
+    print(data[0]['boundingbox'])
+
     return data[0]['boundingbox']
