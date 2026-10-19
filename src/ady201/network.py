@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from pyrosm import OSM
 import geopandas as gpd
+from ady201.grid_cell import get_grid_cell
 
 
 @dataclass(frozen=True)
@@ -60,3 +61,18 @@ def calculate_road_features(roads,buffers,radius_m):
     result[density_column] = result[length_column] / result["buffers_area_km2"]
 
     return result[["cell_id",length_column,density_column]]
+
+def merge_to_crs(ten_tinh,network_type,grid_size):
+    boundary = osm.get_boundaries(name=ten_tinh)
+    roads = osm.get_network(network_type=network_type)
+
+    cell_points = get_grid_cell(boundary= boundary,grid_size=grid_size)
+
+    buffers_500m = create_buffers(cell_points, boundary, roads, 500)
+    buffers_1000m = create_buffers(cell_points, boundary, roads, 1000)
+
+    road_500m = calculate_road_features(roads,buffers_500m,500)
+    road_1000m = calculate_road_features(roads,buffers_1000m,1000)
+    road_features = road_500m.merge(road_1000m,on="cell_id",how="left")
+
+    return road_features
