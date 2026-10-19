@@ -4,6 +4,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from pathlib import Path
+from pyrosm import OSM
+import geopandas as gpd
 
 @dataclass(frozen=True)
 class Poi:
@@ -115,3 +118,63 @@ def normalize_poi_file(source: Path, destination: Path) -> int:
     pois = read_pois(source)
     save_pois(pois, destination)
     return len(pois)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+pbf_path = PROJECT_ROOT / "data" / "raw" / "osm" / "vietnam-261014.osm.pbf"
+
+def get_pois(province_n, amenity):
+    osm = OSM(str(pbf_path))
+
+    # Đọc ranh giới từ PBF.
+    boundary = osm.get_boundaries(
+        boundary_type="administrative",
+        name=province_n,
+        custom_filter={"admin_level": ["4"]},
+    )
+
+    if boundary is None or boundary.empty:
+        raise ValueError(
+            f"Không tìm thấy ranh giới '{province_n}' trong PBF"
+        )
+
+    boundary = boundary.to_crs(epsg=4326)
+
+    # Giới hạn khu vực đọc POI bằng bounding box.
+    osm = OSM(
+        str(pbf_path),
+        bounding_box=boundary.total_bounds.tolist(),
+    )
+
+    if isinstance(amenity, str):
+        amenity = [amenity]
+
+    pois = osm.get_pois(
+        custom_filter={"amenity": amenity}
+    )
+
+    if pois is None:
+        return gpd.GeoDataFrame(
+            geometry=[],
+            crs="EPSG:4326",
+        )
+
+    if pois.empty:
+        return pois
+
+    # Lọc lại theo hình dạng ranh giới tỉnh.
+    province_geometry = boundary.geometry.union_all()
+    pois = pois.to_crs(boundary.crs)
+
+    pois = pois.loc[
+        pois.geometry.intersects(province_geometry)
+    ].copy()
+
+    return pois
+
+
+pois = get_pois(
+    province_n="Thanh Hóa",
+    amenity=["hospital", "clinic", "pharmacy"]
+)
+
+pois.plot(figsize = (20,20),color = 'whitesmoke',edgecolor = 'black',linestyle= ':')
