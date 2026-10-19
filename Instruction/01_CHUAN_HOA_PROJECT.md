@@ -93,11 +93,11 @@ Kết quả cần thấy: cùng câu lệnh chạy được trên máy khác n�
 
 ### Bước 6 — Giữ phần network ở mức tối thiểu
 
-- `network.py` mới chỉ mô tả đường dẫn tới file node và edge.
-- Chưa tải PBF, chưa tạo graph và chưa chạy Dijkstra ở giai đoạn này.
-- Phần graph được triển khai từ giai đoạn 06 để tránh học quá nhiều cùng lúc.
+- `network.py` hiện chỉ là placeholder từ bước chuẩn hóa ban đầu.
+- Chưa tải PBF và chưa xử lý road ở giai đoạn này.
+- Giai đoạn 05 sẽ thay phần này bằng hàm lấy road lines; project không cần nodes hoặc graph.
 
-Kết quả cần thấy: import được `RoadNetworkFiles` nhưng chưa có code routing giả hoặc graph chưa dùng.
+Kết quả cần thấy: package vẫn import được; chưa đưa xử lý Pyrosm vào giai đoạn 01.
 
 ## Cấu trúc hiện tại
 
@@ -112,7 +112,7 @@ src/ady201/
 
 - `main.py`: nhận lệnh từ terminal.
 - `poi.py`: đọc, làm sạch và lưu POI.
-- `network.py`: khai báo file node và edge sẽ dùng sau.
+- `network.py`: placeholder, sẽ được rút gọn thành xử lý road lines ở giai đoạn 05.
 - `__init__.py`: đánh dấu package và lưu version.
 - `__main__.py`: cho phép chạy `python -m ady201`.
 
@@ -148,7 +148,7 @@ src/ady201/
 
 ### Hiếu
 
-- Kiểm tra cấu trúc `nodes` và `edges` cần cho mạng đường.
+- Kiểm tra cấu trúc road lines cần cho phép tính mật độ đường.
 - Xác nhận project chạy được trên máy khác.
 
 ### Quang

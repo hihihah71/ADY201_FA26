@@ -1,228 +1,155 @@
-# Giai đoạn 02 — Cấu hình và danh sách khu vực
+# Giai đoạn 02 — Cấu hình và danh sách tỉnh
 
-## Mục tiêu
+## Nhiệm vụ tổng quát
 
-Cho phép thêm Hà Nội, Đà Nẵng hoặc khu vực khác bằng file JSON, không sửa code Python.
-
-## Cần có trước
-
-- Giai đoạn 01 đã hoàn thành.
-- Biết đọc `dict` và JSON trong Python.
-
-## Đầu vào
-
-- Tham số chung như tốc độ đi bộ và ngưỡng thời gian.
-- Danh sách nhóm POI.
-- Danh sách tỉnh/thành cần chạy.
+Đưa các giá trị thường thay đổi ra file JSON để chạy tỉnh khác mà không sửa code Python.
 
 ## Luồng
 
 ```text
 project.json + categories.json + regions.json
-                    ↓ settings.py / regions.py
-             dữ liệu đã kiểm tra
                     ↓
-              các module phía sau
+          settings.py + regions.py
+                    ↓
+         config đã đọc thành dict
 ```
 
-## Các bước thực hiện chi tiết
+## Những thứ cần thay đổi
 
-### Bước 1 — Chốt cấu trúc ba file JSON
+Chỉ dùng ba file:
 
-Tạo và phân biệt rõ trách nhiệm:
+- `config/project.json`: kích thước cell, bán kính và loại network.
+- `config/categories.json`: quy tắc đổi OSM tag thành nhóm POI.
+- `config/regions.json`: tên tỉnh và đường dẫn boundary.
 
-- `project.json`: tham số dùng chung cho cả project.
-- `categories.json`: mapping OSM tag sang nhóm dịch vụ.
-- `regions.json`: danh sách khu vực có thể chạy.
+Không cần H3 resolution, graph setting, tốc độ đường hoặc tham số Dijkstra.
 
-Tên tham số phải kèm đơn vị để tránh hiểu nhầm:
+## Các bước thực hiện
+
+### Bước 1 — Rút gọn `project.json`
 
 ```json
 {
-  "walking_speed_mps": 1.4,
-  "accessibility_minutes": [5, 10, 15],
-  "hex_resolution": 9
+  "cell_size_m": 1000,
+  "poi_radii_m": [500, 1000, 2000],
+  "road_radii_m": [500, 1000],
+  "road_network_type": "walking"
 }
 ```
 
-Không dùng tên mơ hồ như `walking_speed: 5000` vì người đọc không biết đơn vị là mét/giây hay mét/giờ.
+- `cell_size_m`: cạnh của ô vuông, ban đầu dùng 1.000 m.
+- `poi_radii_m`: các bán kính đếm POI.
+- `road_radii_m`: các bán kính tính mật độ đường.
+- `road_network_type`: loại đường Pyrosm cần lấy.
 
-`categories.json` nên lưu rule có cả tên tag, thay vì giả định tất cả dịch vụ đều nằm trong `amenity`:
+Nếu chạy quá chậm, thử tăng `cell_size_m` lên 2.000 m trước khi tối ưu code.
+
+### Bước 2 — Giữ bốn category trong `categories.json`
 
 ```json
 {
-  "rules": [
-    {
-      "tag": "amenity",
-      "values": ["hospital", "clinic", "pharmacy"],
-      "category": "healthcare",
-      "subcategory": "medical"
-    },
-    {
-      "tag": "shop",
-      "values": ["supermarket"],
-      "category": "shopping",
-      "subcategory": "supermarket"
-    }
-  ]
+  "hospital": {"amenity": ["hospital"]},
+  "school": {"amenity": ["school"]},
+  "supermarket": {"shop": ["supermarket"]},
+  "transit": {
+    "public_transport": ["platform", "station", "stop_position"],
+    "highway": ["bus_stop"]
+  }
 }
 ```
 
-Kết quả cần thấy: đọc từng file JSON bằng Python không lỗi và mỗi file chỉ chứa đúng loại cấu hình của nó.
+Nhóm có thể mở rộng sau, nhưng tên đầu ra phải giữ ổn định: `hospital`, `school`, `supermarket`, `transit`. Không gộp `clinic` vào `hospital` nếu cột kết quả mang tên `nearest_hospital_m`.
 
-### Bước 2 — Viết hàm đọc config trong `settings.py`
-
-- Viết `load_json(path)` để đọc một file JSON và trả về `dict` hoặc `list`.
-- Viết `load_project_settings()` và `load_categories()` gọi lại `load_json()`.
-- Dùng UTF-8 để đọc được tên tiếng Việt.
-- Nếu file không tồn tại hoặc JSON sai cú pháp, để Python báo lỗi kèm đúng đường dẫn file.
-
-Kết quả cần thấy:
-
-```powershell
-python -c "from ady201.settings import load_project_settings; print(load_project_settings())"
-```
-
-### Bước 3 — Chuẩn hóa `regions.json`
-
-Mỗi region dùng cùng năm trường tối thiểu:
+### Bước 3 — Khai báo từng tỉnh trong `regions.json`
 
 ```json
 {
-  "region_id": "hanoi",
-  "name": "Hà Nội",
-  "boundary_path": "data/boundaries/v1/hanoi.geojson",
-  "network_bbox": [105.70, 20.85, 106.05, 21.25],
-  "enabled": true
+  "hanoi": {
+    "name": "Hà Nội",
+    "boundary_path": "data/raw/boundaries/hanoi.geojson",
+    "enabled": true
+  },
+  "danang": {
+    "name": "Đà Nẵng",
+    "boundary_path": "data/raw/boundaries/danang.geojson",
+    "enabled": true
+  }
 }
 ```
 
-- `region_id` viết thường, không dấu và không đổi sau khi đã có dữ liệu.
-- `name` chỉ dùng để hiển thị.
-- `boundary_path` là đường dẫn tương đối dùng cho hexagon và phân tích không gian từ giai đoạn 07.
-- `network_bbox` có thứ tự `[min_lon, min_lat, max_lon, max_lat]` và được Pyrosm dùng để lấy mạng đường.
-- `enabled=false` nghĩa là tạm thời không chạy region đó.
+Bbox không cần nhập tay. Code lấy bbox bằng `boundary.total_bounds`.
 
-Kết quả cần thấy: Hà Nội và Đà Nẵng có `region_id`, boundary và network bbox riêng.
+### Bước 4 — Viết các hàm đọc config
 
-### Bước 4 — Viết hàm tìm region trong `regions.py`
+Trong `settings.py`:
 
-- `load_regions()` trả toàn bộ danh sách.
-- `get_region(region_id)` trả đúng một region.
-- Nếu không tìm thấy, báo lỗi có danh sách ID hợp lệ.
-- Nominatim/get-bbox có thể hỗ trợ lấy `network_bbox`; boundary trong registry vẫn là đầu vào cho phân tích hexagon.
+```python
+from pathlib import Path
+import json
 
-Kết quả cần thấy: `get_region("hanoi")` trả đúng cấu hình Hà Nội, còn ID sai tạo thông báo có danh sách ID hợp lệ.
 
-### Bước 5 — Kiểm tra dữ liệu config
+def read_json(path):
+    with Path(path).open(encoding="utf-8") as file:
+        return json.load(file)
 
-Kiểm tra ngay sau khi đọc:
 
-- Không có hai region cùng `region_id`.
-- Các trường bắt buộc không rỗng.
-- `walking_speed_mps` lớn hơn 0.
-- Các ngưỡng phút là số dương và tăng dần.
-- `network_bbox` có đúng bốn số và `min` nhỏ hơn `max`.
+def get_project_config():
+    return read_json("config/project.json")
 
-Không đợi tới giai đoạn graph mới báo config sai.
 
-Kết quả cần thấy: cố tình tạo `walking_speed_mps = 0` hoặc lặp `region_id` thì loader dừng và chỉ rõ trường sai.
-
-### Bước 6 — Thêm lệnh xem region
-
-Thêm `list-regions` vào `main.py`. Lệnh chỉ đọc config và hiển thị:
-
-```text
-region_id | name    | enabled
-hanoi     | Hà Nội  | true
-danang    | Đà Nẵng | true
+def get_categories():
+    return read_json("config/categories.json")
 ```
 
-Sau đó thêm Đà Nẵng vào `regions.json` và chạy lại. Nếu danh sách thay đổi mà không sửa file Python thì bước này đạt.
+Trong `regions.py`:
 
-Kết quả cần thấy: `ady201 list-regions` hiển thị dữ liệu mới ngay sau khi chỉ sửa JSON.
+```python
+from ady201.settings import read_json
 
-## Lỗi thường gặp
 
-- Giữ các key cũ như `walking_speed`, `hexagon_size` nhưng không ghi đơn vị.
-- Để `regions.json` rỗng rồi các bước sau phải hard-code Hà Nội.
-- Chỉ lưu bounding box từ Nominatim và coi đó là boundary thật; bounding box là hình chữ nhật, không phải ranh giới hành chính.
-- Đổi `region_id` sau khi đã có output, làm đường dẫn và khóa dữ liệu cũ không còn khớp.
-
-## File cần tạo hoặc sửa
-
-```text
-config/project.json
-config/categories.json
-config/regions.json
-src/ady201/settings.py
-src/ady201/regions.py
-src/ady201/main.py
+def get_region(region_id):
+    regions = read_json("config/regions.json")
+    if region_id not in regions:
+        raise ValueError(f"Không tìm thấy region: {region_id}")
+    return regions[region_id]
 ```
 
-`project.json` lưu:
+### Bước 5 — Kiểm tra đơn giản
 
-- Tốc độ đi bộ.
-- Các mốc 5, 10 và 15 phút.
-- Kích thước hexagon.
+- `cell_size_m > 0`.
+- Bán kính là số dương.
+- `boundary_path` tồn tại.
+- `region_id` không trùng.
+- Mỗi category có ít nhất một OSM tag.
 
-`categories.json` lưu mapping tag OSM sang nhóm như bệnh viện, trường học và siêu thị.
+Không cần tạo hệ thống validate riêng; kiểm tra ngay khi đọc file là đủ.
 
-`regions.json` lưu:
+## Kiến thức cần học
 
-- `region_id` không dấu, ví dụ `hanoi`.
-- Tên hiển thị.
-- Đường dẫn boundary.
-- Bounding box dùng để đọc mạng đường.
-- Trạng thái `enabled`.
+- JSON object, list và kiểu Boolean.
+- Python `dict`, `Path.exists()` và `raise ValueError`.
+- Vì sao tên biến có hậu tố `_m` giúp tránh nhầm đơn vị.
 
-## Quy tắc
-
-- Dùng JSON vì Python đọc được bằng thư viện có sẵn.
-- Không lưu bounding box hoặc tên Hà Nội trong source.
-- Hàm cần khu vực nào thì nhận `region` qua tham số.
-- Chưa cần tạo `context.py` hoặc framework config phức tạp.
-
-## Cần học trước
-
-- Cấu trúc JSON.
-- `json.load`.
-- Kiểm tra key trong `dict`.
-- Giá trị mặc định và thông báo lỗi.
-
-## Tìm hiểu thêm
-
-- Từ khóa: `Python read JSON file`.
-- Từ khóa: `configuration versus source code`.
-- Từ khóa: `stable slug identifier`.
+Từ khóa tìm thêm: `Python json load`, `pathlib Path exists`.
 
 ## Phân công
 
-### Thành
+### Thành — trung bình
 
-- Thiết kế `categories.json`.
-- Chốt mapping OSM tag sang category.
+- Rút gọn `project.json` và viết các hàm trong `settings.py`.
 
-### Hiếu
+### Hiếu — trung bình
 
-- Chốt `network_bbox`, boundary và loại mạng đường.
-- Kiểm tra dữ liệu Hà Nội và Đà Nẵng.
+- Chốt bốn nhóm POI và đối chiếu tag trong `categories.json`.
 
-### Quang
+### Quang — dễ/trung bình
 
-- Viết hàm đọc JSON và lệnh `list-regions`.
-- Viết bảng báo trường nào còn thiếu.
+- Thêm Hà Nội, Đà Nẵng và kiểm tra các file boundary có mở được.
 
-## Đầu ra
-
-- Ba file config dễ đọc.
-- Danh sách khu vực có thể mở rộng.
-- Các module sau không cần hard-code tên tỉnh/thành.
+Review chéo: Quang giải thích lại bốn tham số trong `project.json`; Thành và Hiếu kiểm tra config của nhau.
 
 ## Hoàn thành khi
 
-```powershell
-ady201 list-regions
-```
-
-hiển thị được Hà Nội và Đà Nẵng, đồng thời thêm một khu vực mới không cần sửa file Python.
+- Có thể gọi `get_project_config()`, `get_categories()` và `get_region("hanoi")`.
+- Không còn cấu hình H3, graph hoặc shortest path.
+- Thêm tỉnh mới chỉ cần thêm boundary và một mục trong `regions.json`.

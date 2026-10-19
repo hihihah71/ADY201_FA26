@@ -1,189 +1,183 @@
-# Tổng quan lộ trình dự án
+# Tổng quan dự án
 
-## Mục tiêu cuối
+## Kết quả cuối cùng
 
-Người dùng chỉ cần nhập khu vực cần phân tích:
+Người dùng nhập một tỉnh/thành:
 
 ```powershell
 ady201 run-region --region hanoi
-ady201 run-region --region danang
-ady201 run-all --resume
 ```
 
-Python tự đọc dữ liệu, gọi DuckDB, xử lý mạng đường và tạo kết quả. Không cần mở pgAdmin hoặc import dữ liệu thủ công.
+Python tự tạo một bảng, mỗi hàng là một cell trong tỉnh. Bảng có các nhóm cột:
 
-## Cách dùng bộ Instruction
+- Số bệnh viện, trường học, siêu thị và điểm giao thông công cộng trong bán kính 500 m, 1.000 m và 2.000 m.
+- Khoảng cách thẳng từ tâm cell tới dịch vụ gần nhất, đơn vị mét.
+- Tổng chiều dài và mật độ đường trong bán kính 500 m và 1.000 m.
+- Polygon của cell để vẽ bản đồ.
 
-1. Làm lần lượt từ giai đoạn 01 đến 12.
-2. Đọc mục **Cần học trước** của giai đoạn đang làm.
-3. Mỗi người hoàn thành nhiệm vụ của mình rồi đổi phần để review chéo.
-4. Chỉ sang giai đoạn tiếp theo khi tất cả mục **Hoàn thành khi** đã đạt.
-5. Nếu gặp thuật ngữ lạ, dùng các từ khóa trong mục **Tìm hiểu thêm** để tự học.
+Khi một tỉnh chạy đúng, dùng:
 
-Không cần học toàn bộ công nghệ ngay từ đầu.
+```powershell
+ady201 run-all
+```
 
-Trong mỗi bước, đọc theo bốn câu hỏi:
+để chạy lần lượt cho toàn bộ tỉnh/thành đã khai báo.
 
-1. **Mở hoặc tạo file nào?** Xem mục “File cần tạo hoặc sửa”.
-2. **Phải làm gì?** Làm lần lượt các bullet trong bước, không làm tắt sang bước sau.
-3. **Kết quả nằm ở đâu?** Xem dòng “Kết quả cần thấy” và mục “Đầu ra”.
-4. **Biết đúng hay sai bằng cách nào?** Chạy lệnh được ghi trong file và đối chiếu mục “Hoàn thành khi”.
+## Luồng duy nhất của project
 
-Nếu một bước chưa có “Kết quả cần thấy”, chưa nên giao output đó cho người tiếp theo.
+```text
+vietnam.osm.pbf + boundary tỉnh
+                ↓
+       lấy POI và đường của tỉnh
+                ↓
+      chia tỉnh thành grid vuông
+                ↓
+   chọn một điểm đại diện cho mỗi cell
+                ↓
+ ┌──────────────────────────────────────────┐
+ │ POI trong 500 m / 1.000 m / 2.000 m     │
+ │ POI gần nhất theo khoảng cách thẳng      │
+ │ đường trong 500 m / 1.000 m             │
+ └──────────────────────────────────────────┘
+                ↓
+ cell_features.parquet + cell_features.csv
+```
 
-## Trạng thái hiện tại và việc cần làm tiếp
+Không có bước gán mỗi POI cố định vào một cell. Các vùng tròn được phép chồng lên nhau; một POI có thể được tính cho nhiều cell gần nó.
 
-| Giai đoạn | Trạng thái | Việc tiếp theo |
+## Những gì không làm
+
+- Không dùng H3.
+- Không tạo graph, node graph hoặc shortest path.
+- Không dùng Dijkstra, NetworkX hoặc GraphML.
+- Không tính khoảng cách đi bộ theo đường.
+- Không tạo buffer bên ngoài tỉnh để lấy thêm network.
+- Không đọc toàn bộ POI Việt Nam rồi mới chia theo tỉnh.
+- Không mở pgAdmin và không import PBF vào database.
+
+`nearest_*_m` là khoảng cách đường thẳng trên CRS mét, không phải khoảng cách đi bộ.
+
+## Output chính
+
+```text
+data/processed/{region_id}/
+├── pois.parquet
+├── roads.parquet
+├── cells.parquet
+├── cell_features.parquet
+└── cell_features.csv
+```
+
+Các cột quan trọng:
+
+```text
+region_id
+cell_id
+cell_area_km2
+hospital_count_500m
+hospital_count_1000m
+hospital_count_2000m
+school_count_500m
+school_count_1000m
+school_count_2000m
+supermarket_count_500m
+supermarket_count_1000m
+supermarket_count_2000m
+transit_count_500m
+transit_count_1000m
+transit_count_2000m
+nearest_hospital_m
+nearest_school_m
+nearest_supermarket_m
+nearest_transit_m
+road_length_500m_km
+road_density_500m_km_per_km2
+road_length_1000m_km
+road_density_1000m_km_per_km2
+geometry
+```
+
+CSV bỏ cột `geometry`. GeoParquet giữ `geometry` để vẽ bản đồ.
+
+## Thứ tự thực hiện
+
+| Giai đoạn | Việc cần làm | Output |
 |---|---|---|
-| 01 | Đã hoàn thành | Giữ cấu trúc hiện tại |
-| 02 | Chưa hoàn thành | Sửa ba file config, viết loader và `list-regions` |
-| 03 | Hoàn thành một phần | Đồng bộ `regions.json` vào DuckDB |
-| 04–12 | Kế hoạch | Chưa tạo code trước khi giai đoạn phụ thuộc hoàn thành |
+| [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa package Python | Lệnh `ady201` |
+| [02](02_CONFIG_VA_REGION_REGISTRY.md) | Khai báo tham số và tỉnh | JSON cấu hình |
+| [03](03_DUCKDB_CO_BAN.md) | Kết nối DuckDB tối giản | Một file database, một view |
+| [04](04_PBF_CO_DINH.md) | Chuẩn bị PBF | `vietnam.osm.pbf` |
+| [05](05_LAY_POI_VA_DUONG_CUA_TINH.md) | Lấy POI và đường của tỉnh | `pois.parquet`, `roads.parquet` |
+| [06](06_TAO_GRID_CELL.md) | Tạo grid và tâm cell | `cells.parquet` |
+| [07](07_POI_QUANH_CELL_VA_NEAREST.md) | Đếm POI và tìm dịch vụ gần nhất | Feature POI |
+| [08](08_MAT_DO_DUONG_QUANH_CELL.md) | Tính chiều dài và mật độ đường | Feature đường |
+| [09](09_FEATURES_VA_CHI_SO.md) | Ghép và xuất bảng cuối | `cell_features.*` |
+| [10](10_CLUSTERING_VA_BAN_DO.md) | Clustering và bản đồ, làm sau | Bản đồ, cluster |
+| [11](11_TU_DONG_HOA_MOT_REGION.md) | Tự động hóa một tỉnh | `run-region` |
+| [12](12_RUN_ALL_TOAN_QUOC.md) | Chạy toàn quốc | `run-all` |
 
-Vì vậy, việc nên làm ngay là hoàn thành giai đoạn 02 rồi hoàn tất bước đồng bộ region của giai đoạn 03. Không bắt đầu tải và xử lý PBF trước khi hai giai đoạn này chạy ổn.
+Chỉ làm giai đoạn 10 sau khi giai đoạn 05–09 chạy đúng cho một tỉnh nhỏ.
 
-## Python và DuckDB dùng để làm gì
+## File Python cần có
 
-| Công cụ | Trách nhiệm |
+Giữ số file ít và trách nhiệm rõ:
+
+| File | Dùng để làm gì |
 |---|---|
-| Python | Dùng Pyrosm đọc PBF, gọi từng bước, xử lý bản đồ, graph, Dijkstra và clustering |
-| DuckDB | Chạy SQL, lưu metadata/trạng thái, tổng hợp bảng và kiểm tra dữ liệu |
-| Parquet/GeoParquet | Lưu bảng lớn và dữ liệu có geometry |
-| GraphML | Lưu graph đường để dùng lại |
+| `settings.py` | Đọc cấu hình chung |
+| `regions.py` | Lấy cấu hình một tỉnh |
+| `osm_input.py` | Trả về đường dẫn PBF |
+| `poi.py` | Lấy và phân loại POI |
+| `network.py` | Lấy các đoạn đường |
+| `analysis.py` | Tạo cell, buffer và các feature |
+| `database.py` | Mở DuckDB và tạo view |
+| `pipeline.py` | Gọi các bước theo đúng thứ tự |
+| `main.py` | Nhận câu lệnh từ terminal |
 
-SQL được Python tự chạy. Người dùng không phải mở công cụ quản trị database.
+Không tạo một file Python mới cho mỗi phép tính.
 
-## Cấu trúc code thống nhất
+## Kiến thức cần học
 
-Giữ module dạng phẳng để dễ tìm:
+Học theo đúng thứ tự:
 
-```text
-src/ady201/
-├── __init__.py
-├── __main__.py
-├── main.py
-├── poi.py
-├── network.py
-├── settings.py
-├── regions.py
-├── database.py
-├── osm_input.py
-├── boundaries.py
-├── hexagons.py
-├── snap.py
-├── accessibility.py
-├── feature_matrix.py
-├── clustering.py
-├── pipeline.py
-└── batch.py
-```
-
-Không cần tạo đủ các file trên ngay. Mỗi giai đoạn chỉ thêm file mà giai đoạn đó sử dụng.
-
-## Luồng dữ liệu tổng thể
-
-```text
-Vietnam OSM PBF + ranh giới khu vực
-                ↓
-        POI + mạng đường
-                ↓
-       hexagon cho từng vùng
-                ↓
-       snap POI/cell vào đường
-                ↓
- Dijkstra + đặc trưng dịch vụ/đường
-                ↓
-      chỉ số + clustering
-                ↓
-        bản đồ + báo cáo
-```
-
-## Danh sách giai đoạn
-
-| Giai đoạn | Việc chính | Kết quả |
-|---|---|---|
-| [01](01_CHUAN_HOA_PROJECT.md) | Chuẩn hóa project | Package và CLI cơ bản |
-| [02](02_CONFIG_VA_REGION_REGISTRY.md) | Tách tham số khỏi code | Thêm tỉnh/thành không sửa source |
-| [03](03_DUCKDB_CO_BAN.md) | Tạo DuckDB cơ bản | Connection và bảng region |
-| [04](04_PBF_CO_DINH.md) | Chuẩn bị PBF | Một file OSM cố định cho toàn dự án |
-| [05](05_POI_TOAN_QUOC.md) | Chuẩn hóa POI toàn quốc | Một bộ POI dùng chung |
-| [06](06_PYROSM_VA_ROAD_GRAPH.md) | Pyrosm tạo graph đường | Walking/driving graph |
-| [07](07_HEXAGON_VA_SPATIAL_JOIN.md) | Tạo ô phân tích | POI được gán vào từng ô |
-| [08](08_SNAP_VA_ACCESSIBILITY.md) | Tính đường đi | Thời gian tới dịch vụ gần nhất |
-| [09](09_FEATURES_VA_CHI_SO.md) | Tạo đặc trưng và chỉ số | Một hàng dữ liệu cho mỗi ô |
-| [10](10_CLUSTERING_VA_BAN_DO.md) | Phân nhóm và trực quan hóa | Cluster, heatmap và báo cáo |
-| [11](11_TU_DONG_HOA_MOT_REGION.md) | Ghép thành một lệnh | `run-region` |
-| [12](12_RUN_ALL_TOAN_QUOC.md) | Chạy toàn quốc | `run-all` với một PBF cố định |
-
-## Từ điển ngắn
-
-- **POI**: địa điểm dịch vụ như trường học, bệnh viện, siêu thị.
-- **CLI**: lệnh chạy chương trình từ terminal, ví dụ `ady201 --help`.
-- **DuckDB**: database chạy trực tiếp trong Python và lưu thành một file.
-- **Region**: một khu vực cần phân tích, thường là một tỉnh hoặc thành phố.
-- **PBF**: file OpenStreetMap đã nén, chứa node, way và relation.
-- **Pyrosm**: thư viện Python đọc PBF và chuyển mạng đường thành node/edge/graph.
-- **Node**: một điểm trong mạng đường.
-- **Edge**: đoạn đường nối hai node.
-- **Graph**: tập hợp node và edge.
-- **Snap**: gán một địa điểm vào node đường gần nhất.
-- **Dijkstra**: thuật toán tìm đường có tổng trọng số nhỏ nhất.
-- **CRS**: hệ tọa độ dùng để đặt và đo geometry.
-- **Geometry**: hình học không gian dạng điểm, đường hoặc vùng.
-- **Hexagon/cell**: ô không gian dùng làm đơn vị phân tích.
-- **Representative point**: một điểm đại diện nằm bên trong polygon.
-- **Spatial join**: ghép dữ liệu dựa trên vị trí thay vì dựa trên ID.
-- **GeoParquet**: file Parquet có thêm cột geometry.
-- **GraphML**: định dạng file dùng để lưu graph.
-- **Schema**: danh sách cột, kiểu dữ liệu và quy tắc của một bảng.
-- **Metadata**: thông tin mô tả dữ liệu như nguồn, phiên bản và đường dẫn.
-- **Feature**: một cột số mô tả cell, ví dụ mật độ POI.
-- **Artifact**: file kết quả của một bước để bước sau sử dụng.
-- **Resume**: chạy tiếp từ phần chưa hoàn thành.
+1. `Path`, hàm, `dict`, đọc JSON và DataFrame.
+2. Point, LineString, Polygon và GeoDataFrame.
+3. CRS 4326 và CRS mét; `to_crs()` và `estimate_utm_crs()`.
+4. `clip()`, `buffer()`, `sjoin()`, `sjoin_nearest()` và `overlay()`.
+5. `groupby()`, `pivot_table()`, `merge()` và `fillna()`.
+6. Pyrosm: `OSM`, `get_pois()` và `get_network()`.
+7. Parquet/GeoParquet và truy vấn DuckDB cơ bản.
+8. Sau cùng mới học scaling, K-Means và bản đồ.
 
 ## Phân công tổng quát
 
-### Thành — trung bình đến khó
+### Thành — mức trung bình/khó
 
-- POI, DuckDB, SQL, dữ liệu dịch vụ và kiểm tra chất lượng.
+- Phụ trách config, đọc PBF, pipeline và chạy toàn quốc.
+- Review công thức POI và mật độ đường.
 
-### Hiếu — trung bình đến khó
+### Hiếu — mức trung bình/khó
 
-- PBF, ranh giới, graph, snap, Dijkstra và dữ liệu đường.
+- Phụ trách grid, buffer, POI feature, nearest và road feature.
+- Review dữ liệu Pyrosm và bảng đầu ra.
 
-### Quang — dễ đến trung bình
+### Quang — mức dễ/trung bình
 
-- Config, kiểm tra đầu ra, clustering, bản đồ và báo cáo.
+- Chuẩn bị boundary/config, kiểm tra file đầu ra, data dictionary và bản đồ.
+- Chạy thử bằng câu lệnh và ghi lại lỗi tái hiện được.
 
-## Quy tắc chung
+## Cách để cả ba người đều hiểu project
 
-1. Không viết riêng logic cho Hà Nội hoặc Đà Nẵng trong source.
-2. Không dùng đường dẫn tuyệt đối như `D:\...`.
-3. Không commit PBF, GraphML, DuckDB và Parquet lớn.
-4. Không chạy SQL thủ công; Python phải tự chạy SQL cần thiết.
-5. Không tự viết Dijkstra nếu thư viện đã có hàm phù hợp.
-6. Không tạo thư mục `tests`; kiểm tra bằng lệnh và dữ liệu mẫu của từng giai đoạn.
-7. Không thêm logging hoặc comment vào code; dùng tên hàm và biến rõ nghĩa.
-8. Mỗi người phải giải thích được phần mình làm và một phần do người khác làm.
+- Mỗi pull request phải được một người khác review.
+- Người review phải chạy được bước đó trên cùng một tỉnh mẫu.
+- Cuối mỗi giai đoạn, người không viết code giải thích lại input, hàm chính và output.
+- Cả nhóm dùng cùng tên cột, bán kính và cấu trúc thư mục trong tài liệu này.
 
-## Cách review chéo để cả ba người hiểu dự án
+## Điều kiện hoàn thành toàn project
 
-Sau mỗi giai đoạn:
-
-1. Người làm chính chạy demo từ đầu, không mở sẵn file kết quả.
-2. Người review chọn một input khác hoặc cố tình tạo một lỗi đơn giản.
-3. Người làm chính giải thích đầu vào, hàm chính, output và cách phát hiện lỗi.
-4. Người review ghi xác nhận vào pull request hoặc biên bản nhóm rồi mới chuyển giai đoạn.
-
-Luân phiên review: Thành review phần của Quang, Hiếu review phần của Thành, Quang review phần của Hiếu. Cách này giúp mỗi người luôn biết ít nhất hai mảng của dự án.
-
-## Thứ tự triển khai an toàn
-
-```text
-Dữ liệu mẫu nhỏ
-    → Hà Nội chạy đủ luồng
-    → Đà Nẵng chạy mà không sửa code
-    → chạy tiếp bằng --resume
-    → chạy tuần tự toàn quốc
-    → chỉ tăng số worker khi đã đo RAM và thời gian
-```
+- `run-region` tạo đủ output cho Hà Nội hoặc Đà Nẵng bằng một lệnh.
+- Mỗi `cell_id` chỉ có một hàng trong bảng cuối.
+- Count không âm; cell không có POI nhận count bằng `0`.
+- Khoảng cách và chiều dài có đơn vị mét/km đúng vì được tính trong CRS mét.
+- `road_density = road_length_km / buffer_area_km2`.
+- `run-all` tiếp tục sang tỉnh sau nếu một tỉnh lỗi và tạo bảng tổng kết.
