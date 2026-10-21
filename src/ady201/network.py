@@ -10,10 +10,17 @@ class RoadNetworkFiles:
     nodes: Path
     edges: Path
 
-pbf_path = Path("../data/raw/osm/vietnam-261014.osm.pbf")
-osm = OSM(
-    str(pbf_path)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+pbf_path = (
+    PROJECT_ROOT
+    / "data"
+    / "raw"
+    / "osm"
+    / "vietnam-261014.osm.pbf"
 )
+
+osm = OSM(str(pbf_path))
+
 def read_network(ten_tinh, network_type):
     boundary = osm.get_boundaries(name=ten_tinh)
     osm_tinh = OSM(pbf_path,bounding_box=boundary.geometry.iloc[0])

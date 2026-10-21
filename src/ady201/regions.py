@@ -6,14 +6,26 @@ from ady201.analys import create_buffers, count_pois, find_nearest
 from ady201.grid_cell import get_grid_cell
 from ady201.feature_process import feature_process, build_cell_features
 
-pbf_path = Path("../data/raw/osm/vietnam-261014.osm.pbf")
-osm = OSM(
-    str(pbf_path)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+pbf_path = (
+    PROJECT_ROOT
+    / "data"
+    / "raw"
+    / "osm"
+    / "vietnam-261014.osm.pbf"
 )
+
+osm = OSM(str(pbf_path))
 
 
 def get_region_features(region_id, province_n, network_type, amenity):
-    output_path = Path(f"../data/processed/{region_id}/cell_features.parquet")
+    output_path = (
+        PROJECT_ROOT
+        / "data"
+        / "processed"
+        / region_id
+        / "cell_features.parquet"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     boundary = osm.get_boundaries(name=province_n)
