@@ -7,6 +7,10 @@ import duckdb
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATABASE_PATH = PROJECT_ROOT / "data" / "database" / "ady201.duckdb"
 SCHEMA_PATH = PROJECT_ROOT / "sql" / "001_schema.sql"
+PROCESSED_PATH = PROJECT_ROOT / "data" / "processed"
+
+
+
 
 
 def connect_database(
@@ -55,3 +59,34 @@ def check_database():
         return {"ready": True,"region_count":region_count}
     finally:
         connection.close()
+
+def create_feature_view(feature):
+    parquet_path = PROCESSED_PATH / "hanoi" / "cell_features.parquet"
+    if not parquet_path.is_file():
+        raise FileNotFoundError(
+            f"Không tìm thấy file Parquet: {parquet_path}"
+        )
+    parquet_sql_path = parquet_path.as_posix().replace("'", "''")
+
+    connection = connect_database()
+
+    try:
+        connection.execute(f"""
+            CREATE OR REPLACE VIEW cell_features AS
+            SELECT *
+            FROM read_parquet(
+                '{parquet_sql_path}',
+                union_by_name = true
+            )
+        """)
+
+        return connection.execute(f"""
+            SELECT
+                COUNT(*) AS cells,
+                AVG({feature}) AS avg_{feature}
+            FROM cell_features
+        """).fetchdf()
+
+    finally:
+        connection.close()
+
