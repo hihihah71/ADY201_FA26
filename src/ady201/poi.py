@@ -143,7 +143,7 @@ def get_pois(province_n, amenity):
         return gpd.GeoDataFrame(
             columns=["amenity", "geometry"], geometry="geometry", crs=target_crs
         )
-    pois = pois.to_crs(target_crs).clip(boundary.to_crs(target_crs))
+    pois = pois.to_crs(target_crs).clip(boundary.to_crs(target_crs)).reset_index(drop=True)
 
     return pois
 
@@ -153,7 +153,7 @@ def get_cell_pois(province_n, amenity, cell_points):
     categories = [amenity] if isinstance(amenity, str) else list(amenity)
     pois = get_pois(province_n, categories)
 
-    points = cell_points.copy()
+    points = cell_points.copy().reset_index(drop=True)
 
     if "points" in points.columns:
         points = points.set_geometry("points")
