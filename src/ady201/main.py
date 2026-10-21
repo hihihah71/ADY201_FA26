@@ -48,7 +48,8 @@ def main(arguments: list[str] | None = None) -> int:
 
     if options.command == "grf":
         network_type = "walking"
-        amenity = ["cafe","fast_food","food_court","ice_cream","restaurant","bbq","pub","water_point"]
+        amenity = ["cafe","fast_food","food_court","ice_cream","restaurant","bbq","pub","water_point",
+                    "hospital","clinic","doctors","dentist","pharmacy"]
         get_region_features(options.region_id, options.province, network_type, amenity)
         
     return 0
