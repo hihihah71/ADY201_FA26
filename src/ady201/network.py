@@ -62,11 +62,9 @@ def calculate_road_features(roads,buffers,radius_m):
 
     return result[["cell_id",length_column,density_column]]
 
-def merge_to_crs(ten_tinh,network_type,grid_size):
+def get_road_features(ten_tinh,network_type,cell_points):
     boundary = osm.get_boundaries(name=ten_tinh)
     roads = osm.get_network(network_type=network_type)
-
-    cell_points = get_grid_cell(boundary= boundary,grid_size=grid_size)
 
     buffers_500m = create_buffers(cell_points, boundary, roads, 500)
     buffers_1000m = create_buffers(cell_points, boundary, roads, 1000)
