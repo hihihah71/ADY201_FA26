@@ -37,9 +37,6 @@ def main(arguments: list[str] | None = None) -> int:
     if options.command == "normalize-poi":
         normalize_poi_file(options.source, options.destination)
 
-    if options.command == "get_bbox":
-        get_bbox(options.location)
-
     if options.command == "init-db":
         initialize_database()
 
