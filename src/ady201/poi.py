@@ -176,7 +176,7 @@ def get_cell_pois(province_n, amenity, cell_points):
 
     result = pd.DataFrame(points[["cell_id"]]).copy()
 
-    for radius_m in (500, 1000, 2000):
+    for radius_m in (100, 200, 500, 1000, 2000, 5000):
         buffers = points.copy()
         buffers["geometry"] = points.geometry.buffer(radius_m)
 

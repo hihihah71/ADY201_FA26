@@ -29,7 +29,7 @@ def get_region_features(region_id, province_n, network_type, amenity):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     boundary = osm.get_boundaries(name=province_n)
-    cell_points = get_grid_cell(boundary, 1000)
+    cell_points = get_grid_cell(boundary, 200)
     road_features = get_road_features(province_n, network_type, cell_points)
     poi_features = get_cell_pois(province_n, amenity, cell_points)
 
