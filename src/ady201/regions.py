@@ -2,7 +2,6 @@ from pathlib import Path
 from pyrosm import OSM
 from ady201.poi import get_cell_pois
 from ady201.network import get_road_features
-from ady201.analys import create_buffers, count_pois, find_nearest
 from ady201.grid_cell import get_grid_cell
 from ady201.feature_process import feature_process, build_cell_features
 
@@ -18,7 +17,7 @@ pbf_path = (
 osm = OSM(str(pbf_path))
 
 
-def get_region_features(region_id, province_n, network_type, amenity):
+def get_region_features(region_id, province_n, network_type, categories):
     output_path = (
         PROJECT_ROOT
         / "data"
@@ -31,7 +30,7 @@ def get_region_features(region_id, province_n, network_type, amenity):
     boundary = osm.get_boundaries(name=province_n)
     cell_points = get_grid_cell(boundary, 200)
     road_features = get_road_features(province_n, network_type, cell_points)
-    poi_features = get_cell_pois(province_n, amenity, cell_points)
+    poi_features = get_cell_pois(boundary, categories, cell_points)
 
     features = build_cell_features(cell_points, poi_features, road_features)
     features = feature_process(features)

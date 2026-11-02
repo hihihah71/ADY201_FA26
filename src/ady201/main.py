@@ -1,10 +1,8 @@
 import argparse
 from pathlib import Path
 
-import duckdb
-
 from ady201 import __version__
-from ady201.poi import normalize_poi_file
+from ady201.poi import OVERTURE_GROUPS
 from ady201.database import initialize_database, check_database
 from ady201.osm_input import check_osm
 from ady201.overture import DEFAULT_OVERTURE_POI_PATH, download_vietnam_places
@@ -16,10 +14,6 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
 
     commands = parser.add_subparsers(dest="command", required=True)
-    normalize_command = commands.add_parser("normalize-poi")
-    normalize_command.add_argument("source", type=Path)
-    normalize_command.add_argument("destination", type=Path)
-
     init_db_command = commands.add_parser("init-db")
 
     check_db_command = commands.add_parser("check-db")
@@ -53,9 +47,6 @@ def main(arguments: list[str] | None = None) -> int:
     parser = create_parser()
     options = parser.parse_args(arguments)
 
-    if options.command == "normalize-poi":
-        normalize_poi_file(options.source, options.destination)
-
     if options.command == "init-db":
         initialize_database()
 
@@ -66,13 +57,12 @@ def main(arguments: list[str] | None = None) -> int:
         check_osm()
 
     if options.command == "grf":
-        network_type = "walking"
-        amenity = ["cafe","fast_food","food_court","ice_cream","restaurant","bbq","pub","water_point",
-                    "hospital","clinic","doctors","dentist","pharmacy", "kindergarten","school","language_school","college","library","university",
-                    "fuel","parking","taxi","bus_station","vehicle_inspection","charging_station", 
-                    "atm","bank","money_transfer","payment_terminal","payment_centre",
-                    "cinema","community_centre","music_venue","gambling","nightclub","theatre","bar"]
-        get_region_features(options.region_id, options.province, network_type, amenity)
+        get_region_features(
+            options.region_id,
+            options.province,
+            "walking",
+            OVERTURE_GROUPS,
+        )
 
     if options.command == "download-overture-poi":
         result = download_vietnam_places(
