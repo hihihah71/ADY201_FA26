@@ -14,7 +14,8 @@ dependencies = [
     "geopandas",
     "pyarrow",
     "matplotlib",
-    "networkx"
+    "networkx",
+    "scipy>=1.11"
 ]
 
 [project.scripts]
