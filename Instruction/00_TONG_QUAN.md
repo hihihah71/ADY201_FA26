@@ -115,6 +115,7 @@ CSV bỏ cột `geometry`. GeoParquet giữ `geometry` để vẽ bản đồ.
 | [10](10_CLUSTERING_VA_BAN_DO.md) | Clustering và bản đồ, làm sau | Bản đồ, cluster |
 | [11](11_TU_DONG_HOA_MOT_REGION.md) | Tự động hóa một tỉnh | `run-region` |
 | [12](12_RUN_ALL_TOAN_QUOC.md) | Chạy toàn quốc | `run-all` |
+| [13](13_THAY_POI_OSM_BANG_OVERTURE.md) | Thay POI OSM bằng Overture | POI Overture theo vùng |
 
 Chỉ làm giai đoạn 10 sau khi giai đoạn 05–09 chạy đúng cho một tỉnh nhỏ.
 
