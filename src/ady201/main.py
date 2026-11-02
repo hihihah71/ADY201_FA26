@@ -75,17 +75,13 @@ def main(arguments: list[str] | None = None) -> int:
         get_region_features(options.region_id, options.province, network_type, amenity)
 
     if options.command == "download-overture-poi":
-        try:
-            result = download_vietnam_places(
-                options.output,
-                overwrite=options.force,
-            )
-        except (duckdb.Error, OSError, RuntimeError) as error:
-            print(f"Could not download Overture POIs: {error}")
-            return 1
+        result = download_vietnam_places(
+            options.output,
+            overwrite=options.force,
+        )
 
         size_mb = result.size_bytes / (1024 * 1024)
         print(f"Saved {result.row_count:,} POIs to: {result.output_path}")
         print(f"File size: {size_mb:.1f} MB")
-        
+
     return 0
