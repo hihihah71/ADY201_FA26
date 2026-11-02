@@ -1,10 +1,13 @@
 import argparse
 from pathlib import Path
 
+import duckdb
+
 from ady201 import __version__
 from ady201.poi import normalize_poi_file
 from ady201.database import initialize_database, check_database
 from ady201.osm_input import check_osm
+from ady201.overture import DEFAULT_OVERTURE_POI_PATH, download_vietnam_places
 from ady201.regions import get_region_features
 
 
@@ -26,6 +29,22 @@ def create_parser() -> argparse.ArgumentParser:
     get_region_features = commands.add_parser("grf")
     get_region_features.add_argument("province")
     get_region_features.add_argument("region_id")
+
+    overture_command = commands.add_parser(
+        "download-overture-poi",
+        help="Download the latest Vietnam POIs from Overture Maps",
+    )
+    overture_command.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OVERTURE_POI_PATH,
+        help=f"Output GeoParquet path (default: {DEFAULT_OVERTURE_POI_PATH})",
+    )
+    overture_command.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace the output file if it already exists",
+    )
 
     return parser
 
@@ -54,5 +73,19 @@ def main(arguments: list[str] | None = None) -> int:
                     "atm","bank","money_transfer","payment_terminal","payment_centre",
                     "cinema","community_centre","music_venue","gambling","nightclub","theatre","bar"]
         get_region_features(options.region_id, options.province, network_type, amenity)
+
+    if options.command == "download-overture-poi":
+        try:
+            result = download_vietnam_places(
+                options.output,
+                overwrite=options.force,
+            )
+        except (duckdb.Error, OSError, RuntimeError) as error:
+            print(f"Could not download Overture POIs: {error}")
+            return 1
+
+        size_mb = result.size_bytes / (1024 * 1024)
+        print(f"Saved {result.row_count:,} POIs to: {result.output_path}")
+        print(f"File size: {size_mb:.1f} MB")
         
     return 0

@@ -22,6 +22,37 @@ ady201 --help
 ady201 normalize-poi RawData/Anuong_Taichinh_Dichvu.json data/interim/pois.csv
 ```
 
+### Tải POI Việt Nam từ Overture Maps
+
+Tải bản Overture mới nhất, lọc theo ranh giới Việt Nam và lưu thành GeoParquet:
+
+```powershell
+ady201 download-overture-poi
+```
+
+File mặc định được lưu tại:
+
+```text
+data/raw/overture/vietnam_places.parquet
+```
+
+Mở file trong notebook:
+
+```python
+import geopandas as gpd
+
+pois = gpd.read_parquet("../data/raw/overture/vietnam_places.parquet")
+pois.head()
+pois.plot(column="category", legend=False, markersize=1)
+```
+
+Chọn đường dẫn khác hoặc ghi đè file cũ:
+
+```powershell
+ady201 download-overture-poi --output data/raw/overture/vietnam_pois.parquet
+ady201 download-overture-poi --force
+```
+
 File CSV đầu ra có sáu cột:
 
 ```text
