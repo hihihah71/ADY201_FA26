@@ -15,7 +15,9 @@ dependencies = [
     "pyarrow",
     "matplotlib",
     "networkx",
-    "scipy>=1.11"
+    "scipy>=1.11",
+    "streamlit>=1.55,<1.56",
+    "pydeck>=0.9"
 ]
 
 [project.scripts]
