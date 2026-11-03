@@ -1,12 +1,32 @@
 # ADY201_FA26
 
-Dự án phân tích mức độ tập trung dịch vụ, khả năng tiếp cận và hạ tầng giao thông tại Việt Nam.
+Dự án xây dựng lưới không gian 200 m cho một tỉnh/thành tại Việt Nam, tổng hợp POI từ Overture Maps và mạng đường từ OpenStreetMap, sau đó chấm điểm khu vực theo nhu cầu của người dùng.
 
 Thành viên: Thành, Hiếu và Quang.
 
-## Cài đặt
+## Luồng hiện tại
 
-Yêu cầu Python 3.11 trở lên.
+```text
+OSM PBF ──> boundary + road network ──┐
+                                      ├─> grid 200 m ─> cell_features.parquet
+Overture Places ──> POI trong vùng ───┘                        │
+                                                               ├─> notebook
+                                                               └─> evaluation + Streamlit
+```
+
+- OSM chỉ cung cấp ranh giới và đường.
+- Overture là nguồn POI duy nhất.
+- Mỗi lần chạy một vùng chỉ tạo một output chính.
+- Model đánh giá dùng trọng số và hướng lựa chọn của người dùng, không phải model học máy có giám sát.
+
+## Yêu cầu
+
+- Python 3.11 trở lên.
+- File OSM PBF tại `data/raw/osm/vietnam-261014.osm.pbf`.
+- POI Overture tại `data/raw/overture/vietnam_places.parquet`.
+- Đủ RAM và dung lượng đĩa để xử lý dữ liệu không gian cấp tỉnh.
+
+## Cài đặt
 
 ```powershell
 python -m venv .venv
@@ -15,85 +35,168 @@ python -m pip install --upgrade pip
 pip install -e .
 ```
 
-## Chạy chương trình
+Kiểm tra CLI:
 
 ```powershell
 ady201 --help
-ady201 normalize-poi RawData/Anuong_Taichinh_Dichvu.json data/interim/pois.csv
 ```
 
-### Tải POI Việt Nam từ Overture Maps
+## Chuẩn bị POI Overture
 
-Tải bản Overture mới nhất, lọc theo ranh giới Việt Nam và lưu thành GeoParquet:
+Tải Places mới nhất của Việt Nam:
 
 ```powershell
 ady201 download-overture-poi
 ```
 
-File mặc định được lưu tại:
+Ghi đè file hiện có:
+
+```powershell
+ady201 download-overture-poi --force
+```
+
+Output mặc định:
 
 ```text
 data/raw/overture/vietnam_places.parquet
 ```
 
-Mở file trong notebook:
+## Tạo feature cho một vùng
 
-```python
-import geopandas as gpd
-
-pois = gpd.read_parquet("../data/raw/overture/vietnam_places.parquet")
-pois.head()
-pois.plot(column="category", legend=False, markersize=1)
-```
-
-Chọn đường dẫn khác hoặc ghi đè file cũ:
+Ví dụ tạo dữ liệu Hà Nội với mã output `29_3`:
 
 ```powershell
-ady201 download-overture-poi --output data/raw/overture/vietnam_pois.parquet
-ady201 download-overture-poi --force
+ady201 grf "Hà Nội" 29_3
 ```
 
-File CSV đầu ra có sáu cột:
+Output:
 
 ```text
-osm_type,osm_id,lat,lon,amenity,name
+data/processed/29_3/cell_features.parquet
 ```
 
-## Các file Python hiện tại
+Luồng này tạo grid 200 m, POI feature, road feature và ghi một GeoParquet cuối. Bước mạng đường có thể chạy lâu và CLI hiện chưa hiển thị tiến độ chi tiết.
+
+## Chạy giao diện đánh giá
+
+```powershell
+streamlit run app.py
+```
+
+Mở `http://localhost:8501`. Giao diện có bốn hồ sơ mặc định:
+
+- Sinh viên.
+- Người đi làm.
+- Gia đình có con.
+- Người cao tuổi.
+
+Người dùng có thể đổi trọng số, chọn `more`, `less`, `target`, `near`, `far`, thay đổi top phần trăm và khoảng cách giữa các đề xuất.
+
+Phiên bản giao diện hiện đọc cố định:
 
 ```text
-src/ady201/
-├── __init__.py
-├── __main__.py
-├── main.py
-├── poi.py
-└── network.py
+data/processed/29_3/cell_features.parquet
 ```
 
-- `main.py`: nhận lệnh từ terminal và gọi hàm xử lý phù hợp.
-- `poi.py`: đọc JSON, kiểm tra POI và ghi CSV chuẩn hóa.
-- `network.py`: định nghĩa hai file `nodes` và `edges` sẽ dùng cho mạng đường.
-- `__init__.py`: đánh dấu `ady201` là một package Python và lưu phiên bản dự án. File này rất ngắn và ít khi phải sửa.
-- `__main__.py`: cho phép chạy `python -m ady201`. File này chỉ chuyển việc xử lý sang `main.py`.
+## Dùng model trong Python
 
-## Các file tự sinh
+```python
+from ady201.evaluation import SuitabilityModel
 
-- `__pycache__/`: Python tự tạo để lần chạy sau nhanh hơn. Không cần đọc, sửa hoặc đưa lên Git. Có thể xóa nhưng Python sẽ tạo lại.
-- `*.pyc`: file nằm trong `__pycache__`, chứa mã Python đã được biên dịch tạm thời.
-- `*.egg-info/`: `pip install -e .` tự tạo để lưu thông tin package. Không cần sửa hoặc đưa lên Git.
+model = SuitabilityModel.from_parquet(
+    "data/processed/29_3/cell_features.parquet"
+)
 
-Các file trên đã được khai báo trong `.gitignore`, nên không được commit.
+preferences = {
+    "food": {
+        "mode": "target",
+        "weight": 3,
+        "min": 1,
+        "max": 10,
+    },
+    "services": {
+        "mode": "more",
+        "weight": 5,
+        "limit": 10,
+    },
+    "hospital": {
+        "mode": "near",
+        "weight": 5,
+        "limit": 2000,
+    },
+    "quietness": 4,
+}
 
-## Cấu trúc dự án
+result = model.evaluate(preferences)
+candidates = model.select_candidates(
+    preferences,
+    limit=10,
+    minimum_distance_m=2000,
+)
+```
 
-- `src/ady201/`: code mới đang sử dụng.
-- `Instruction/`: kế hoạch và hướng dẫn theo từng giai đoạn.
-- `Code/`: script cũ, giữ lại để đối chiếu.
-- `RawData/`: dữ liệu JSON hiện có.
-- `Flatten/`: dữ liệu CSV hiện có.
+## Dữ liệu đầu ra
+
+`cell_features.parquet` chứa:
+
+- Cell: `cell_id`, diện tích, polygon và điểm đại diện.
+- POI trực tiếp trong cell theo 13 group Overture.
+- POI theo bán kính 100, 200, 500, 1000, 2000 và 5000 m.
+- Khoảng cách tới 13 group và 22 category quan trọng.
+- Chiều dài và mật độ đường trong 500 m và 1000 m.
+
+File `29_3` hiện có 85.249 cell và 135 cột.
+
+## Cấu trúc chính
+
+```text
+ADY201_FA26/
+├── app.py
+├── config/
+│   ├── categories.json
+│   ├── project.json
+│   └── regions.json
+├── data/
+│   ├── raw/osm/
+│   ├── raw/overture/
+│   └── processed/{region_id}/
+├── Instruction/
+├── notebook/
+├── sql/
+└── src/ady201/
+    ├── main.py
+    ├── overture.py
+    ├── poi.py
+    ├── grid_cell.py
+    ├── network.py
+    ├── feature_process.py
+    ├── regions.py
+    └── evaluation.py
+```
+
+## CLI hiện có
+
+| Lệnh                                 | Công dụng                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `ady201 download-overture-poi`      | Tải POI Overture của Việt Nam                                                      |
+| `ady201 grf <province> <region_id>` | Tạo `cell_features.parquet` cho một vùng                                         |
+| `ady201 init-db`                    | Khởi tạo DuckDB phụ trợ                                                           |
+| `ady201 check-db`                   | Gọi kiểm tra DuckDB; CLI chưa in kết quả                                         |
+| `ady201 check-osm`                  | Tiện ích kiểm tra PBF đang chưa hoàn thiện, không dùng trong pipeline chính |
 
 ## Tài liệu
 
-- Bắt đầu tại `Instruction/00_TONG_QUAN.md` để xem toàn bộ lộ trình.
-- Giai đoạn 01 trong `Instruction/01_CHUAN_HOA_PROJECT.md` đã hoàn thành.
-- Tiếp tục với `Instruction/02_CONFIG_VA_REGION_REGISTRY.md`.
+- Bắt đầu tại [tổng quan dự án](Instruction/00_TONG_QUAN.md).
+- Xem [khám phá dữ liệu bằng notebook](Instruction/10_CLUSTERING_VA_BAN_DO.md).
+- Xem [chạy pipeline một region](Instruction/11_TU_DONG_HOA_MOT_REGION.md).
+- Xem [model đánh giá và giao diện](Instruction/14_DANH_GIA_VA_GIAO_DIEN.md).
+
+Các file trong `Instruction/` được sắp theo thứ tự từ thiết lập dữ liệu đến đánh giá và giao diện.
+
+## Giới hạn hiện tại
+
+- Tên file OSM PBF đang được cố định trong code.
+- Chưa có CLI chạy tự động toàn bộ 63 tỉnh/thành.
+- `app.py` đang cố định vào region `29_3` và bbox trung tâm Hà Nội.
+- `student_activity` là chỉ số proxy từ POI, không phải dữ liệu dân số sinh viên thực tế.
+- `database.py`, `analys.py`, `project.json` và `regions.json` là tiện ích/phần tham khảo, không nằm trên luồng `grf` chính.

@@ -1,145 +1,95 @@
-# Giai đoạn 07 — POI quanh cell và POI gần nhất
+# 07 — POI quanh cell và khoảng cách gần nhất
 
-## Nhiệm vụ tổng quát
+## Nguồn và cấu hình
 
-Từ điểm đại diện của mỗi cell:
+- Nguồn: `data/raw/overture/vietnam_places.parquet`.
+- Group/category: `config/categories.json`.
+- 13 group Overture.
+- 22 category quan trọng.
+- Bán kính: 100, 200, 500, 1000, 2000, 5000 m.
 
-- Đếm từng loại POI trong 500 m, 1.000 m và 2.000 m.
-- Tính khoảng cách thẳng tới POI gần nhất của từng loại.
+## Hàm điều phối
 
-## Luồng
+```python
+poi_features = get_cell_pois(
+    boundary,
+    OVERTURE_GROUPS,
+    cell_points,
+)
+```
+
+`get_cell_pois()` chỉ điều phối các bước nhỏ trong `poi.py`.
+
+## 1. Đọc POI trong boundary
+
+`get_pois()` dùng bbox filter khi đọc Parquet, sau đó clip chính xác và loại địa điểm đóng vĩnh viễn.
+
+## 2. Gán POI vào cell
+
+`assign_pois_to_cells()` dùng `gpd.sjoin_nearest()` giữa POI và polygon. Sau join, mỗi `overture_id` chỉ giữ một cell để tránh đếm trùng ở ranh giới.
+
+Các feature trực tiếp:
 
 ```text
-cell points + POI points cùng CRS mét
-              ├── buffer 500/1000/2000 m → sjoin → count
-              └── sjoin_nearest → nearest_*_m
-                               ↓
-                    cell_poi_features.parquet
+poi_count
+arts_and_entertainment_count
+...
+travel_and_transportation_count
 ```
 
-## Những thứ cần thay đổi
+## 3. Count theo bán kính
 
-- Thêm các hàm POI feature vào `analysis.py`.
-- Không gán POI vào một cell duy nhất.
-- Không dùng network distance. `nearest_*_m` là khoảng cách thẳng.
-- Buffer của các cell được phép chồng nhau.
-
-## Các bước thực hiện
-
-### Bước 1 — Tạo buffer cho một bán kính
-
-```python
-def create_buffers(cell_points, boundary, radius_m):
-    buffers = cell_points[["cell_id", "geometry"]].copy()
-    buffers["geometry"] = buffers.geometry.buffer(radius_m)
-    buffers = buffers.clip(boundary)
-    return buffers
-```
-
-Việc clip buffer theo boundary bảo đảm chỉ đo phần thuộc tỉnh. Đây là buffer phân tích quanh cell, không phải boundary buffer để tải thêm road.
-
-### Bước 2 — Đếm POI trong buffer
-
-```python
-import pandas as pd
-import geopandas as gpd
-
-
-def count_pois(pois, buffers, radius_m, categories):
-    joined = gpd.sjoin(
-        pois[["category", "geometry"]],
-        buffers[["cell_id", "geometry"]],
-        how="inner",
-        predicate="within",
-    )
-
-    counts = pd.crosstab(joined["cell_id"], joined["category"])
-    counts = counts.reindex(columns=categories, fill_value=0)
-    counts.columns = [f"{name}_count_{radius_m}m" for name in counts.columns]
-    return counts.reset_index()
-```
-
-Truyền `categories = ["hospital", "school", "supermarket", "transit"]`. Chạy hàm lần lượt với `500`, `1000`, `2000`, rồi left join vào danh sách đầy đủ `cell_id`. Sau join, điền `0` cho các cột count bị thiếu.
-
-### Bước 3 — Tìm một category gần nhất
-
-```python
-def find_nearest(cell_points, pois, category):
-    selected = pois[pois["category"] == category]
-
-    if selected.empty:
-        result = cell_points[["cell_id"]].copy()
-        result[f"nearest_{category}_m"] = None
-        return result
-
-    nearest = gpd.sjoin_nearest(
-        cell_points[["cell_id", "geometry"]],
-        selected[["geometry"]],
-        how="left",
-        distance_col=f"nearest_{category}_m",
-    )
-
-    return nearest[["cell_id", f"nearest_{category}_m"]].drop_duplicates("cell_id")
-```
-
-Gọi với:
-
-```python
-for category in ["hospital", "school", "supermarket", "transit"]:
-    nearest = find_nearest(cell_points, pois, category)
-```
-
-### Bước 4 — Ghép output
-
-Bắt đầu từ danh sách đầy đủ `cell_id`, sau đó left join:
-
-1. Count 500 m.
-2. Count 1.000 m.
-3. Count 2.000 m.
-4. Bốn bảng nearest.
-
-Lưu:
+Với mỗi group, code tạo `scipy.spatial.cKDTree` và đếm POI quanh representative point:
 
 ```text
-data/processed/{region_id}/cell_poi_features.parquet
+food_and_drink_count_100m
+food_and_drink_count_200m
+food_and_drink_count_500m
+food_and_drink_count_1000m
+food_and_drink_count_2000m
+food_and_drink_count_5000m
 ```
 
-## Kiểm tra kết quả
+Mẫu này áp dụng cho cả 13 group.
 
-- Mỗi `cell_id` chỉ có một hàng.
-- Mọi count là số nguyên không âm.
-- Với cùng category: `count_500m <= count_1000m <= count_2000m`.
-- Khoảng cách không âm và có đơn vị mét.
-- Category không tồn tại trong tỉnh có nearest là null, không phải `0`.
-- Số hàng sau mỗi lần merge không tăng.
+## 4. Nearest theo group
 
-## Kiến thức cần học
+```text
+nearest_food_and_drink_m
+nearest_health_care_m
+nearest_education_m
+...
+```
 
-- `buffer()`, spatial join và `predicate="within"`.
-- `pd.crosstab()`, left join và `fillna(0)`.
-- `sjoin_nearest()` và `distance_col`.
-- Vì sao mọi layer phải cùng CRS mét.
+## 5. Nearest category quan trọng
 
-Từ khóa tìm thêm: `GeoPandas sjoin buffer`, `GeoPandas sjoin_nearest distance_col`.
+22 category gồm hospital, pharmacy, school, restaurant, grocery store, bus station, ATM, bank, police station, park và các category liên quan.
 
-## Phân công
+Ví dụ:
 
-### Thành — trung bình/khó
+```text
+nearest_hospital_m
+nearest_school_m
+nearest_college_university_m
+nearest_grocery_store_m
+nearest_park_m
+```
 
-- Viết phần count, merge ba bán kính và kiểm tra count tăng dần.
+## Khi không có POI
 
-### Hiếu — trung bình/khó
+- Count được trả về 0.
+- Nearest được trả về `NaN`.
+- `feature_process()` chỉ fill các cột count/road, không biến nearest thiếu thành 0.
 
-- Viết phần nearest cho bốn category và xử lý category rỗng.
+Khoảng cách 0 có nghĩa là POI ở ngay representative point; không được dùng 0 để biểu diễn “không có POI”.
 
-### Quang — dễ/trung bình
+## Kiểm tra
 
-- Chọn vài cell, đếm/đo thủ công trên bản đồ và đối chiếu kết quả.
+```python
+assert poi_features["cell_id"].is_unique
+assert poi_features.filter(like="_count").ge(0).all().all()
+```
 
-Review chéo: Thành review nearest; Hiếu review count; Quang giải thích vì sao một POI có thể được tính cho nhiều cell.
+## Feature dùng trong evaluation
 
-## Hoàn thành khi
-
-- Có đủ 12 cột count và 4 cột nearest.
-- Bảng có đúng một hàng cho mỗi cell.
-- Không có H3, Dijkstra hoặc gán POI cố định vào cell.
+Model hiện dùng count 200 m cho food, services, shopping và education; nearest cho trường, bệnh viện, thực phẩm, công viên; road density dùng 1000 m.

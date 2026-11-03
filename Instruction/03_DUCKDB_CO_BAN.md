@@ -1,121 +1,71 @@
-# Giai đoạn 03 — DuckDB tối giản
+# 03 — DuckDB phụ trợ
 
-## Nhiệm vụ tổng quát
+## Vai trò
 
-Để Python tự mở DuckDB và dùng DuckDB đọc bảng feature sau này. Không import PBF, không mở pgAdmin và chưa cần tạo nhiều bảng.
+DuckDB không bắt buộc để chạy `ady201 grf`. Nó hiện được dùng cho hai việc:
 
-GeoPandas thực hiện các phép tính không gian. DuckDB chỉ giúp xem, lọc và tổng hợp file kết quả.
+- Downloader Overture truy vấn STAC database và ghi GeoParquet.
+- Database cục bộ thử nghiệm tại `data/database/ady201.duckdb`.
 
-## Luồng
+## Khởi tạo database cục bộ
 
-```text
-Python gọi connect_database()
-             ↓
-data/database/ady201.duckdb
-             ↓
-view đọc cell_features.parquet
+```powershell
+ady201 init-db
 ```
 
-## Những thứ cần thay đổi
-
-- Giữ `src/ady201/database.py` thật ngắn.
-- Có thể bỏ schema nhiều bảng cũ nếu chúng chưa được dùng.
-- Chỉ cần một view `cell_features` sau khi đã có file Parquet.
-
-## Các bước thực hiện
-
-### Bước 1 — Viết hàm kết nối
-
-```python
-from pathlib import Path
-import duckdb
-
-
-DATABASE_PATH = Path("data/database/ady201.duckdb")
-
-
-def connect_database():
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    return duckdb.connect(str(DATABASE_PATH))
-```
-
-Ý nghĩa:
-
-- Tạo thư mục nếu chưa có.
-- DuckDB tự tạo file database ở lần kết nối đầu.
-- Hàm trả về connection để chạy SQL.
-
-### Bước 2 — Kiểm tra kết nối
-
-```python
-from ady201.database import connect_database
-
-connection = connect_database()
-result = connection.execute("SELECT 1 AS ok").fetchone()
-connection.close()
-print(result)
-```
-
-Kết quả cần thấy: `(1,)`.
-
-### Bước 3 — Tạo view khi đã có output
-
-Thực hiện ở giai đoạn 09 hoặc 12:
-
-```python
-def create_feature_view(connection):
-    connection.execute("""
-        CREATE OR REPLACE VIEW cell_features AS
-        SELECT *
-        FROM read_parquet(
-            'data/processed/*/cell_features.parquet',
-            union_by_name = true
-        )
-    """)
-```
-
-View chỉ đọc các file đang có. Không sao chép dữ liệu vào nhiều bảng.
-
-### Bước 4 — Truy vấn thử
+Schema hiện chỉ có bảng `regions`:
 
 ```sql
-SELECT region_id, COUNT(*) AS cell_count
-FROM cell_features
-GROUP BY region_id
-ORDER BY region_id;
+CREATE TABLE IF NOT EXISTS regions (
+    region_id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    boundary_path VARCHAR NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
 ```
 
-## Khi nào mới cần bảng thật
+## Kiểm tra trong Python
 
-Chỉ thêm bảng khi nhóm có nhu cầu rõ ràng, ví dụ lưu lịch sử chạy. Phiên bản đầu không cần `regions`, `pipeline_steps`, `artifacts` hoặc bảng POI/road trong DuckDB.
+CLI `check-db` hiện gọi hàm nhưng chưa in dictionary trả về. Để xem kết quả:
 
-## Kiến thức cần học
+```python
+from ady201.database import check_database
 
-- Connection, `execute()`, `fetchone()` và `fetchdf()`.
-- Khác nhau giữa table và view.
-- `read_parquet()` và `GROUP BY`.
+print(check_database())
+```
 
-Từ khóa tìm thêm: `DuckDB Python connection`, `DuckDB read_parquet view`.
+Output dạng:
 
-## Phân công
+```python
+{"ready": True, "region_count": 0}
+```
 
-### Thành — trung bình
+## Query trực tiếp GeoParquet
 
-- Rút gọn `database.py` và viết `create_feature_view()`.
+Không cần import dữ liệu vào bảng DuckDB:
 
-### Hiếu — trung bình
+```sql
+SELECT
+    count(*) AS cells,
+    avg(food_and_drink_count_200m) AS avg_food
+FROM read_parquet('data/processed/29_3/cell_features.parquet');
+```
 
-- Viết ba truy vấn kiểm tra count, null và `cell_id` trùng.
+Ví dụ Python:
 
-### Quang — dễ
+```python
+import duckdb
 
-- Chạy `SELECT 1`, mở database bằng Python và ghi lại câu lệnh sử dụng.
+result = duckdb.sql("""
+    SELECT cell_id, food_and_drink_count_200m
+    FROM read_parquet('data/processed/29_3/cell_features.parquet')
+    ORDER BY food_and_drink_count_200m DESC
+    LIMIT 10
+""").df()
+```
 
-Review chéo: Hiếu giải thích vì sao project dùng view thay vì import Parquet thành nhiều bảng.
+## Giới hạn hiện tại
 
-## Hoàn thành khi
-
-- Python tự tạo/kết nối được file `.duckdb`.
-- Không cần pgAdmin.
-- Không import PBF, POI hoặc road vào DuckDB.
-- Khi có Parquet, view đọc được feature của các tỉnh.
+- `create_feature_view()` đang hard-code `data/processed/hanoi/cell_features.parquet`, không phải `29_3`.
+- Database không nằm trong luồng tạo feature hoặc Streamlit.
+- Không cần chạy `init-db` trước `download-overture-poi` hoặc `grf`.

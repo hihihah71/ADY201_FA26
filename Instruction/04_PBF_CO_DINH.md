@@ -1,100 +1,50 @@
-# Giai đoạn 04 — Chuẩn bị file OSM PBF
+# 04 — Input OSM PBF
 
-## Nhiệm vụ tổng quát
+## Đường dẫn bắt buộc
 
-Dùng một file Geofabrik Việt Nam làm nguồn OSM cho toàn project.
-
-## Luồng
+Code hiện cố định file:
 
 ```text
-Geofabrik Vietnam
-        ↓ tải một lần
-data/raw/osm/vietnam.osm.pbf
-        ↓
-Pyrosm đọc theo bbox của từng tỉnh
+data/raw/osm/vietnam-261014.osm.pbf
 ```
 
-## Những thứ cần thay đổi
+Đường dẫn này xuất hiện trong `regions.py`, `network.py` và `osm_input.py`.
 
-- Đặt file tại đúng một đường dẫn cố định.
-- `osm_input.py` chỉ kiểm tra file tồn tại và trả về đường dẫn.
-- Không tạo snapshot, checksum, manifest hay bản PBF riêng cho từng tỉnh.
-- Không tạo buffer quanh boundary tỉnh ở giai đoạn này.
+## Vai trò của PBF
 
-## Các bước thực hiện
+OSM PBF chỉ cung cấp:
 
-### Bước 1 — Chuẩn bị thư mục
+- Boundary theo tên tỉnh/thành.
+- Walking road network.
 
-```text
-data/raw/osm/vietnam.osm.pbf
-```
+POI không lấy từ PBF. Nguồn POI duy nhất là Overture Places.
 
-Không commit file PBF vào Git.
-
-### Bước 2 — Kiểm tra dependency
-
-Trong môi trường Python đang dùng:
+## Kiểm tra thủ công
 
 ```powershell
-python -c "from pyrosm import OSM; print('ok')"
+Get-Item data\raw\osm\vietnam-261014.osm.pbf |
+    Select-Object FullName, Length, LastWriteTime
 ```
 
-Nếu lệnh lỗi, sửa việc cài `pyrosm` trước khi viết code xử lý.
-
-### Bước 3 — Viết hàm lấy đường dẫn
-
-Trong `osm_input.py`:
-
-```python
-from pathlib import Path
-
-
-OSM_PATH = Path("data/raw/osm/vietnam.osm.pbf")
-
-
-def get_osm_path():
-    if not OSM_PATH.exists():
-        raise FileNotFoundError(f"Thiếu file OSM: {OSM_PATH}")
-    return OSM_PATH
-```
-
-### Bước 4 — Mở file thử
+Mở thử bằng Pyrosm:
 
 ```python
 from pyrosm import OSM
-from ady201.osm_input import get_osm_path
 
-osm = OSM(str(get_osm_path()))
+osm = OSM("data/raw/osm/vietnam-261014.osm.pbf")
+boundary = osm.get_boundaries(name="Hà Nội")
+print(boundary[["name", "geometry"]].head())
 ```
 
-Chưa gọi lấy toàn bộ POI hoặc road ở bước này.
+## Lưu ý về `check-osm`
 
-## Kiến thức cần học
+Lệnh `ady201 check-osm` tồn tại nhưng phần kiểm tra kích thước file trong `osm_input.py` hiện chưa đúng cho file hợp lệ. Không dùng lệnh này làm điều kiện chạy pipeline; kiểm tra bằng `Get-Item` và đoạn Pyrosm ở trên.
 
-- PBF là file dữ liệu OpenStreetMap đã nén.
-- `Path.exists()` và `FileNotFoundError`.
-- Pyrosm có thể đọc một phần PBF theo bounding box.
+## Thay PBF mới
 
-Từ khóa tìm thêm: `Geofabrik Vietnam PBF`, `Pyrosm bounding box`.
+Vì tên file đang hard-code, có hai lựa chọn:
 
-## Phân công
+1. Đổi tên file mới thành `vietnam-261014.osm.pbf`.
+2. Sửa đồng thời hằng đường dẫn trong `regions.py`, `network.py` và `osm_input.py`.
 
-### Thành — trung bình
-
-- Kiểm tra Pyrosm đọc được file và hoàn thiện `osm_input.py`.
-
-### Hiếu — trung bình
-
-- Kiểm tra dung lượng/RAM khi mở PBF trên máy nhóm.
-
-### Quang — dễ
-
-- Tải file, đặt đúng tên, cập nhật `.gitignore` nếu cần và ghi nguồn/ngày tải trong README.
-
-Review chéo: Quang chạy lại hàm của Thành trên máy mình.
-
-## Hoàn thành khi
-
-- `get_osm_path()` trả về đúng file.
-- Pyrosm mở được file.
-- Repository không theo dõi file PBF.
+Không cần thêm POI vào PBF vì pipeline không đọc POI từ nguồn này.

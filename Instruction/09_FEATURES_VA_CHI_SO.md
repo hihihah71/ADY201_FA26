@@ -1,135 +1,105 @@
-# Giai đoạn 09 — Ghép và xuất bảng feature
+# 09 — Ghép và xuất bảng feature
 
-## Nhiệm vụ tổng quát
-
-Ghép cell, POI feature và road feature thành một bảng cuối có đúng một hàng cho mỗi cell.
-
-Giai đoạn này chưa cần tạo chỉ số tổng hợp. Giữ các cột gốc để kết quả dễ kiểm tra và giải thích.
-
-## Luồng
-
-```text
-cells
-  + cell_poi_features
-  + cell_road_features
-          ↓ left join theo cell_id
-   cell_features GeoDataFrame
-          ├── GeoParquet có geometry
-          └── CSV không có geometry
-```
-
-## Những thứ cần thay đổi
-
-- Thêm `build_cell_features()` vào `analysis.py`.
-- Không thêm giao lộ, tỷ lệ loại đường hoặc score ở phiên bản đầu.
-- DuckDB chỉ tạo view sau khi file output đã tồn tại.
-
-## Các bước thực hiện
-
-### Bước 1 — Ghép bằng left join
+## Hàm ghép
 
 ```python
-def build_cell_features(cells, poi_features, road_features):
-    features = cells.merge(poi_features, on="cell_id", how="left")
-    features = features.merge(road_features, on="cell_id", how="left")
-    return features
+features = build_cell_features(
+    cell_points,
+    poi_features,
+    road_features,
+)
+features = feature_process(features)
 ```
 
-Luôn bắt đầu từ `cells` để cell không có POI hoặc road vẫn xuất hiện.
+`build_cell_features()` dùng left join theo `cell_id`, nên mọi cell từ grid được giữ lại.
 
-### Bước 2 — Xử lý giá trị thiếu
+## Xử lý missing
 
-- Các cột `*_count_*`, `road_length_*` và `road_density_*`: điền `0` sau khi xác nhận bước tính đã chạy thành công.
-- Các cột `nearest_*_m`: giữ null nếu cả tỉnh không có category đó.
-- Không điền khoảng cách nearest bằng `0`; `0` có nghĩa dịch vụ nằm đúng tại điểm đại diện.
+`feature_process()` fill 0 cho các cột chứa:
 
-### Bước 3 — Thêm region và sắp xếp cột
+- `count`.
+- `road_length`.
+- `road_density`.
 
-Thứ tự nên là:
+Các cột nearest không được fill 0 vì 0 là khoảng cách hợp lệ.
 
-1. `region_id`, `cell_id`, `cell_area_km2`.
-2. Count POI theo category và bán kính.
-3. Khoảng cách nearest.
-4. Road length và road density.
-5. `geometry`.
+## Kiểm tra khóa
 
-### Bước 4 — Kiểm tra khóa
+Pipeline kiểm tra trước khi ghi:
 
 ```python
-assert len(features) == len(cells)
+assert len(features) == len(cell_points)
 assert features["cell_id"].is_unique
 assert features["cell_id"].notna().all()
 ```
 
-Thêm kiểm tra:
-
-- Count, distance, length và density không âm.
-- Với mỗi category: count 500 m không lớn hơn 1.000 m; count 1.000 m không lớn hơn 2.000 m.
-- Geometry và CRS còn nguyên.
-
-### Bước 5 — Xuất hai định dạng
-
-```python
-features.to_parquet(parquet_path)
-features.drop(columns="geometry").to_csv(csv_path, index=False)
-```
-
-Output:
+## Output duy nhất
 
 ```text
 data/processed/{region_id}/cell_features.parquet
-data/processed/{region_id}/cell_features.csv
 ```
 
-### Bước 6 — Cho DuckDB đọc kết quả
+Ví dụ:
 
-Gọi `create_feature_view()` từ giai đoạn 03, sau đó chạy:
-
-```sql
-SELECT
-    region_id,
-    COUNT(*) AS cells,
-    AVG(nearest_hospital_m) AS avg_nearest_hospital_m
-FROM cell_features
-GROUP BY region_id;
+```text
+data/processed/29_3/cell_features.parquet
 ```
 
-## Data dictionary tối thiểu
+Không có CSV output trong code hiện tại.
 
-Tạo `data/processed/data_dictionary.md`. Với mỗi cột, ghi:
+## Nhóm cột
 
-- Ý nghĩa.
-- Đơn vị.
-- Cách tính.
-- Null hoặc `0` có nghĩa gì.
+### Cell
 
-## Kiến thức cần học
+```text
+cell_id
+cell_area_km2
+geometry
+points
+```
 
-- Khóa chính, left join và duplicate key.
-- Khác nhau giữa `0` và null.
-- GeoParquet so với CSV.
-- SQL `COUNT`, `AVG` và `GROUP BY`.
+### POI trực tiếp
 
-Từ khóa tìm thêm: `pandas left merge validate one_to_one`, `GeoPandas to_parquet`.
+```text
+poi_count
+{group}_count
+```
 
-## Phân công
+### POI theo khoảng cách
 
-### Thành — trung bình/khó
+```text
+nearest_{group}_m
+{group}_count_{radius}m
+nearest_{important_category}_m
+```
 
-- Viết `build_cell_features()`, xuất file và kết nối view DuckDB.
+`radius` thuộc `100, 200, 500, 1000, 2000, 5000`.
 
-### Hiếu — trung bình/khó
+### Road
 
-- Viết toàn bộ kiểm tra khóa, null, đơn vị và quan hệ count.
+```text
+road_length_500m_km
+road_density_500m_km_per_km2
+road_length_1000m_km
+road_density_1000m_km_per_km2
+```
 
-### Quang — dễ/trung bình
+## Trạng thái `29_3`
 
-- Viết data dictionary và mở thử CSV/GeoParquet để đối chiếu cột.
+```text
+85.249 rows
+135 columns
+CRS: WGS 84 / UTM zone 48N (EPSG:32648)
+```
 
-Review chéo: Quang chọn năm cột và yêu cầu Thành/Hiếu giải thích lại cách tính, đơn vị và ý nghĩa của null.
+## Đọc file
 
-## Hoàn thành khi
+```python
+import geopandas as gpd
 
-- Bảng cuối có đúng một hàng cho mỗi cell.
-- CSV và GeoParquet đều mở lại được.
-- DuckDB truy vấn được output mà không cần import thủ công.
+features = gpd.read_parquet(
+    "data/processed/29_3/cell_features.parquet"
+)
+```
+
+Từ notebook nằm trong `notebook/`, dùng `../data/...` hoặc dựa vào `Path.cwd()`.

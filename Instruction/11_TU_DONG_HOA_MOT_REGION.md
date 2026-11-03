@@ -1,147 +1,104 @@
-# Giai đoạn 11 — Tự động hóa một tỉnh
+# 11 — Chạy pipeline cho một region
 
-## Nhiệm vụ tổng quát
+## CLI
 
-Gom các hàm đã chạy đúng thành một hàm `run_region(region_id)`. Người dùng chỉ nhập tên tỉnh và không mở notebook, DuckDB hay pgAdmin.
-
-## Luồng
-
-```text
-ady201 run-region --region hanoi
-                ↓
-          đọc config + boundary
-                ↓
-          lấy POI và đường
-                ↓
-       tạo cell và điểm đại diện
-                ↓
-      POI features + road features
-                ↓
-       ghép và lưu bảng cuối
+```powershell
+ady201 grf <province> <region_id>
 ```
 
-## Những thứ cần thay đổi
+Ví dụ Hà Nội:
 
-- Tạo `pipeline.py` chứa `run_region()`.
-- `main.py` chỉ nhận tham số rồi gọi pipeline.
-- Phiên bản đầu chạy tuần tự, chưa cần resume, worker hoặc bảng trạng thái phức tạp.
-
-## Các bước thực hiện
-
-### Bước 1 — Chốt các hàm đầu vào
-
-Pipeline cần gọi được các hàm sau:
-
-```text
-get_project_config()
-get_categories()
-get_region(region_id)
-get_osm_path()
-extract_region_data(...)
-create_cells(...)
-create_cell_points(...)
-build_poi_features(...)
-build_road_features(...)
-build_cell_features(...)
+```powershell
+ady201 grf "Hà Nội" 29_3
 ```
 
-Mỗi hàm nhận input rõ ràng và trả dữ liệu hoặc đường dẫn rõ ràng. Không phụ thuộc vào biến trong notebook.
+Ví dụ Thanh Hóa:
 
-### Bước 2 — Viết pipeline tuần tự
+```powershell
+ady201 grf "Thanh Hóa" 38_1
+```
+
+`province` dùng để tìm boundary OSM. `region_id` chỉ xác định thư mục output.
+
+## Luồng bên trong
+
+```text
+main.py
+  -> get_region_features(region_id, province, "walking", OVERTURE_GROUPS)
+      -> boundary
+      -> get_grid_cell(boundary, 200)
+      -> get_road_features(...)
+      -> get_cell_pois(...)
+      -> build_cell_features(...)
+      -> feature_process(...)
+      -> assertions
+      -> to_parquet(...)
+```
+
+## Output
+
+```text
+data/processed/{region_id}/cell_features.parquet
+```
+
+Thư mục cha được tạo tự động. File hiện có sẽ bị ghi lại bởi `to_parquet()`.
+
+## Chuẩn bị trước khi chạy
+
+```powershell
+Test-Path data\raw\osm\vietnam-261014.osm.pbf
+Test-Path data\raw\overture\vietnam_places.parquet
+```
+
+Cả hai lệnh phải trả về `True`.
+
+## Kiểm tra sau khi chạy
 
 ```python
-def run_region(region_id):
-    config = get_project_config()
-    region = get_region(region_id)
-    boundary, pois, roads = extract_region_data(region, config)
+import geopandas as gpd
 
-    cells = create_cells(boundary, config["cell_size_m"])
-    cell_points = create_cell_points(cells)
+features = gpd.read_parquet(
+    "data/processed/29_3/cell_features.parquet"
+)
 
-    poi_features = build_poi_features(
-        cell_points,
-        pois,
-        boundary,
-        config["poi_radii_m"],
-    )
-    road_features = build_road_features(
-        cell_points,
-        roads,
-        boundary,
-        config["road_radii_m"],
-    )
-
-    features = build_cell_features(cells, poi_features, road_features)
-    save_region_outputs(region_id, pois, roads, cells, features)
-    return features
+print(features.shape)
+print(features.crs)
+assert features["cell_id"].is_unique
+assert features["cell_id"].notna().all()
 ```
 
-Đây là khung luồng; tên hàm có thể điều chỉnh nhưng thứ tự không đổi.
+## Thời gian chạy
 
-### Bước 3 — Thêm câu lệnh terminal
+Pipeline không có progress log chi tiết. Bước đường có thể mất nhiều thời gian; terminal im lặng không nhất thiết là treo.
 
-Trong `main.py`, thêm subcommand:
+Kiểm tra process từ PowerShell khác:
 
 ```powershell
-ady201 run-region --region hanoi
+Get-Process python -ErrorAction SilentlyContinue |
+    Select-Object Id, CPU, WorkingSet, StartTime
 ```
 
-Nếu chưa cài lệnh `ady201`, có thể chạy:
+## Lỗi thường gặp
+
+### Không tìm thấy boundary
+
+Kiểm tra dấu tiếng Việt và tên trong OSM. Không dùng tên viết tắt nếu OSM không có.
+
+### Duplicate labels khi merge/reindex
+
+Nguồn feature phải có một dòng cho mỗi `cell_id`. Kiểm tra:
+
+```python
+assert poi_features["cell_id"].is_unique
+assert road_features["cell_id"].is_unique
+```
+
+### Thiếu file Overture
 
 ```powershell
-python -m ady201 run-region --region hanoi
+ady201 download-overture-poi
 ```
 
-### Bước 4 — Xử lý lỗi đơn giản
+### Chạy lại tốn thời gian
 
-Dừng tỉnh hiện tại với thông báo rõ khi:
-
-- Không tìm thấy region hoặc boundary.
-- Thiếu PBF.
-- Pyrosm không trả về POI/road.
-- Output không có cell hoặc bị trùng `cell_id`.
-
-Không bắt lỗi rồi bỏ qua im lặng.
-
-### Bước 5 — Chạy thử theo thứ tự
-
-1. Một tỉnh nhỏ.
-2. Hà Nội hoặc Đà Nẵng.
-3. Chạy lại cùng tỉnh và kiểm tra output được tạo nhất quán.
-
-## Kiểm tra kết quả
-
-- Một câu lệnh tạo đủ năm output trong thư mục của tỉnh.
-- Không phải sửa tên tỉnh trong source code.
-- Không cần mở notebook hoặc database thủ công.
-- Số cell trong `cells.parquet` bằng số hàng trong bảng cuối.
-
-## Kiến thức cần học
-
-- Hàm điều phối pipeline.
-- `argparse` subcommand và command-line arguments.
-- `try/except` ở mức gọi lệnh, không bọc mọi dòng code.
-- Tạo đường dẫn output bằng `Path`.
-
-Từ khóa tìm thêm: `Python argparse subparsers`, `Python data pipeline functions`.
-
-## Phân công
-
-### Thành — trung bình/khó
-
-- Viết `run_region()` và nối vào `main.py`.
-
-### Hiếu — trung bình/khó
-
-- Kiểm tra input/output giữa từng hàm và các điều kiện lỗi.
-
-### Quang — dễ/trung bình
-
-- Chạy lệnh từ một thư mục mới, ghi hướng dẫn và bảng kết quả mong đợi.
-
-Review chéo: Quang chỉ dùng tài liệu để chạy; lỗi nào phải hỏi miệng thì bổ sung lại tài liệu.
-
-## Hoàn thành khi
-
-- `ady201 run-region --region hanoi` chạy hết luồng bằng một lệnh.
-- Pipeline không chứa H3, graph hoặc bước import thủ công.
+Nếu lỗi xảy ra sau khi đã có `cell_features.parquet`, phân tích và đánh giá trực tiếp trên file này; không chạy lại `grf` khi không cần thay feature nguồn.
