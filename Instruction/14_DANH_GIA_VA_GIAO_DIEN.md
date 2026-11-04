@@ -127,7 +127,9 @@ streamlit run app.py
 
 Giao diện hiện có:
 
-- Bốn profile: Sinh viên, Người đi làm, Gia đình có con, Người cao tuổi.
+- 12 profile: Sinh viên, Người đi làm, Gia đình có con, Người cao tuổi,
+  Làm việc tại nhà, Thích yên tĩnh, Thích sôi động, Ưu tiên sức khỏe,
+  Yêu ẩm thực, Ưu tiên mua sắm, Ưu tiên công viên và Tiện nghi cân bằng.
 - Điều chỉnh weight, mode và limit/range.
 - Top 5–30% cell.
 - 5–20 ứng viên.

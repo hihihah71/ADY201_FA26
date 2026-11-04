@@ -83,12 +83,20 @@ Luồng này tạo grid 200 m, POI feature, road feature và ghi một GeoParque
 streamlit run app.py
 ```
 
-Mở `http://localhost:8501`. Giao diện có bốn hồ sơ mặc định:
+Mở `http://localhost:8501`. Giao diện có 12 hồ sơ mặc định:
 
 - Sinh viên.
 - Người đi làm.
 - Gia đình có con.
 - Người cao tuổi.
+- Làm việc tại nhà.
+- Thích yên tĩnh.
+- Thích sôi động.
+- Ưu tiên sức khỏe.
+- Yêu ẩm thực.
+- Ưu tiên mua sắm.
+- Ưu tiên công viên.
+- Tiện nghi cân bằng.
 
 Người dùng có thể đổi trọng số, chọn `more`, `less`, `target`, `near`, `far`, thay đổi top phần trăm và khoảng cách giữa các đề xuất.
 
