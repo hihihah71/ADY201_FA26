@@ -1,14 +1,7 @@
-from dataclasses import dataclass
 from pathlib import Path
 from pyrosm import OSM
 import geopandas as gpd
 from ady201.grid_cell import get_grid_cell
-
-
-@dataclass(frozen=True)
-class RoadNetworkFiles:
-    nodes: Path
-    edges: Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 pbf_path = (

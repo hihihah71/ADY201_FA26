@@ -3,7 +3,6 @@ from pathlib import Path
 
 from ady201 import __version__
 from ady201.poi import OVERTURE_GROUPS
-from ady201.database import initialize_database, check_database
 from ady201.osm_input import check_osm
 from ady201.overture import DEFAULT_OVERTURE_POI_PATH, download_vietnam_places
 from ady201.regions import get_region_features
@@ -14,9 +13,6 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
 
     commands = parser.add_subparsers(dest="command", required=True)
-    init_db_command = commands.add_parser("init-db")
-
-    check_db_command = commands.add_parser("check-db")
 
     check_osm = commands.add_parser("check-osm")
 
@@ -46,12 +42,6 @@ def create_parser() -> argparse.ArgumentParser:
 def main(arguments: list[str] | None = None) -> int:
     parser = create_parser()
     options = parser.parse_args(arguments)
-
-    if options.command == "init-db":
-        initialize_database()
-
-    if options.command == "check-db":
-        check_database()
 
     if options.command == "check-osm":
         check_osm()

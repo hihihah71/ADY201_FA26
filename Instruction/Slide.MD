@@ -218,13 +218,13 @@ data/processed/{region_id}/cell_features.parquet
 
 ## Nhóm cột
 
-| Nhóm | Nội dung |
-|---|---|
-| Cell | ID, tọa độ, geometry |
-| POI trực tiếp | Số POI nằm trong cell |
-| POI theo bán kính | Count từ 100 m đến 5 km |
-| Nearest | Khoảng cách tới POI quan trọng |
-| Road | Chiều dài và mật độ đường |
+| Nhóm               | Nội dung                          |
+| ------------------- | ---------------------------------- |
+| Cell                | ID, tọa độ, geometry            |
+| POI trực tiếp     | Số POI nằm trong cell            |
+| POI theo bán kính | Count từ 100 m đến 5 km         |
+| Nearest             | Khoảng cách tới POI quan trọng |
+| Road                | Chiều dài và mật độ đường |
 
 ---
 
@@ -261,12 +261,12 @@ Kết hợp số lượng dịch vụ và tỷ lệ dịch vụ trong tổng POI
 
 # Slide 10 — Cách tính điểm từng tiêu chí
 
-| Mode | Ý nghĩa |
-|---|---|
-| `more` | Càng nhiều càng tốt |
-| `less` | Càng ít càng tốt |
-| `near` | Càng gần càng tốt |
-| `far` | Càng xa càng tốt |
+| Mode       | Ý nghĩa                              |
+| ---------- | -------------------------------------- |
+| `more`   | Càng nhiều càng tốt                |
+| `less`   | Càng ít càng tốt                   |
+| `near`   | Càng gần càng tốt                  |
+| `far`    | Càng xa càng tốt                    |
 | `target` | Tốt nhất khi nằm trong một khoảng |
 
 ## Công thức cơ bản
@@ -360,14 +360,14 @@ Ví dụ mặc định:
 
 # Gợi ý thời lượng thuyết trình
 
-| Phần | Thời lượng |
-|---|---:|
-| Bài toán và mục tiêu | 1 phút |
-| Nguồn dữ liệu | 1 phút |
-| Pipeline tạo Parquet | 3 phút |
-| Model đánh giá | 2–3 phút |
-| Giao diện và kết quả | 2 phút |
-| Giới hạn và hướng phát triển | 1 phút |
+| Phần                               | Thời lượng |
+| ----------------------------------- | ------------: |
+| Bài toán và mục tiêu           |       1 phút |
+| Nguồn dữ liệu                    |       1 phút |
+| Pipeline tạo Parquet               |       3 phút |
+| Model đánh giá                   |    2–3 phút |
+| Giao diện và kết quả            |       2 phút |
+| Giới hạn và hướng phát triển |       1 phút |
 
 Tổng thời lượng phù hợp: khoảng 8–10 phút.
 
