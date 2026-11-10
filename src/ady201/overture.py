@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,12 +7,7 @@ import duckdb
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OVERTURE_POI_PATH = (
-    PROJECT_ROOT / "data" / "raw" / "overture" / "vietnam_places.parquet"
-)
-
-# Used only to find Vietnam's country polygon efficiently. The POI query uses
-# the bounds stored on that polygon, including any islands present in Overture.
+DEFAULT_OVERTURE_POI_PATH = PROJECT_ROOT / "data/raw/overture/vietnam_places.parquet"
 VIETNAM_BOUNDARY_SEARCH_BBOX = (100.0, 0.0, 105.0, 25.0)
 OVERTURE_LATEST_DATABASE = "https://stac.overturemaps.org/latest.ddb"
 
@@ -26,32 +19,25 @@ class OvertureDownloadResult:
     size_bytes: int
 
 
-def _load_extension(connection: duckdb.DuckDBPyConnection, name: str) -> None:
-    """Load a DuckDB extension, installing it on the first run if necessary."""
-    try:
-        connection.execute(f"LOAD {name}")
-    except duckdb.Error:
-        connection.execute(f"INSTALL {name}")
-        connection.execute(f"LOAD {name}")
+def _load_extensions(connection):
+    for name in ("spatial", "httpfs"):
+        try:
+            connection.execute(f"LOAD {name}")
+        except duckdb.Error:
+            connection.execute(f"INSTALL {name}")
+            connection.execute(f"LOAD {name}")
 
 
-def _sql_string(value: Path | str) -> str:
-    """Return a value safe to place inside a single-quoted SQL literal."""
+def _sql_string(value):
     return str(value).replace("'", "''")
 
 
 def download_vietnam_places(
-    output_path: Path = DEFAULT_OVERTURE_POI_PATH,
+    output_path=DEFAULT_OVERTURE_POI_PATH,
     *,
-    overwrite: bool = False,
-) -> OvertureDownloadResult:
-    """Download the latest Overture Places located inside Vietnam.
-
-    The output is a flattened GeoParquet file in OGC:CRS84 (longitude/latitude),
-    which can be opened directly with GeoPandas or queried with DuckDB.
-    """
+    overwrite=False,
+):
     output_path = Path(output_path).resolve()
-
     if output_path.exists() and not overwrite:
         raise FileExistsError(
             f"File already exists: {output_path}. Use --force to replace it."
@@ -61,16 +47,12 @@ def download_vietnam_places(
     temporary_path = output_path.with_name(
         f".{output_path.stem}.{uuid4().hex}.partial.parquet"
     )
-
-    search_xmin, search_ymin, search_xmax, search_ymax = (
-        VIETNAM_BOUNDARY_SEARCH_BBOX
-    )
+    xmin, ymin, xmax, ymax = VIETNAM_BOUNDARY_SEARCH_BBOX
     connection = duckdb.connect()
 
     try:
         print("Loading DuckDB spatial extensions...")
-        _load_extension(connection, "spatial")
-        _load_extension(connection, "httpfs")
+        _load_extensions(connection)
         connection.execute("SET s3_region = 'us-west-2'")
         connection.execute("SET preserve_insertion_order = false")
         connection.execute("PRAGMA enable_progress_bar")
@@ -93,32 +75,24 @@ def download_vietnam_places(
             FROM overture.division_area
             WHERE subtype = 'country'
               AND country = 'VN'
-              AND bbox.xmin BETWEEN {search_xmin} AND {search_xmax}
-              AND bbox.ymin BETWEEN {search_ymin} AND {search_ymax}
+              AND bbox.xmin BETWEEN {xmin} AND {xmax}
+              AND bbox.ymin BETWEEN {ymin} AND {ymax}
             """
         )
 
-        boundary_found = connection.execute(
+        found = connection.execute(
             "SELECT geometry IS NOT NULL FROM vietnam_boundary"
         ).fetchone()[0]
-        if not boundary_found:
+        if not found:
             raise RuntimeError("Vietnam boundary was not found in Overture.")
 
-        connection.execute(
-            "SET VARIABLE vietnam_xmin = (SELECT xmin FROM vietnam_boundary)"
-        )
-        connection.execute(
-            "SET VARIABLE vietnam_ymin = (SELECT ymin FROM vietnam_boundary)"
-        )
-        connection.execute(
-            "SET VARIABLE vietnam_xmax = (SELECT xmax FROM vietnam_boundary)"
-        )
-        connection.execute(
-            "SET VARIABLE vietnam_ymax = (SELECT ymax FROM vietnam_boundary)"
-        )
+        for axis in ("xmin", "ymin", "xmax", "ymax"):
+            connection.execute(
+                f"SET VARIABLE vietnam_{axis} = "
+                f"(SELECT {axis} FROM vietnam_boundary)"
+            )
 
         print("Downloading Vietnam POIs to GeoParquet...")
-        output_sql = _sql_string(temporary_path.as_posix())
         connection.execute(
             f"""
             COPY (
@@ -149,7 +123,7 @@ def download_vietnam_places(
                   AND p.bbox.ymin BETWEEN getvariable('vietnam_ymin')
                                       AND getvariable('vietnam_ymax')
                   AND ST_Intersects(vn.geometry, p.geometry)
-            ) TO '{output_sql}' (
+            ) TO '{_sql_string(temporary_path.as_posix())}' (
                 FORMAT PARQUET,
                 COMPRESSION ZSTD
             )
@@ -157,17 +131,15 @@ def download_vietnam_places(
         )
 
         row_count = connection.execute(
-            "SELECT count(*) FROM read_parquet(?)", [str(temporary_path)]
+            "SELECT count(*) FROM read_parquet(?)",
+            [str(temporary_path)],
         ).fetchone()[0]
-
-        # os.replace is atomic when source and destination are on the same drive.
         os.replace(temporary_path, output_path)
         return OvertureDownloadResult(
-            output_path=output_path,
-            row_count=row_count,
-            size_bytes=output_path.stat().st_size,
+            output_path,
+            row_count,
+            output_path.stat().st_size,
         )
     finally:
         connection.close()
-        if temporary_path.exists():
-            temporary_path.unlink()
+        temporary_path.unlink(missing_ok=True)

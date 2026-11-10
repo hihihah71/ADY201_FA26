@@ -14,12 +14,6 @@ pbf_path = (
 
 osm = OSM(str(pbf_path))
 
-def read_network(ten_tinh, network_type):
-    boundary = osm.get_boundaries(name=ten_tinh)
-    osm_tinh = OSM(pbf_path,bounding_box=boundary.geometry.iloc[0])
-    tim_network = osm_tinh.get_network(network_type=network_type,nodes=True)
-    return tim_network
-
     
 def create_buffers(cell_points,boundary,roads,radius_m):
     target_crs = cell_points.estimate_utm_crs()
@@ -62,8 +56,7 @@ def calculate_road_features(roads,buffers,radius_m):
 
     return result[["cell_id",length_column,density_column]]
 
-def get_road_features(ten_tinh,network_type,cell_points):
-    boundary = osm.get_boundaries(name=ten_tinh)
+def get_road_features(boundary,network_type,cell_points):
     roads = osm.get_network(network_type=network_type)
 
     buffers_500m = create_buffers(cell_points, boundary, roads, 500)
