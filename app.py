@@ -19,13 +19,13 @@ LABELS = {
     "services": "Dịch vụ",
     "shopping": "Mua sắm",
     "school": "Trường học",
+    "university": "Trường đại học",
     "hospital": "Bệnh viện",
+    "pharmacy": "Nhà thuốc",
     "grocery": "Cửa hàng thực phẩm",
     "park": "Công viên",
     "transport": "Giao thông",
-    "quietness": "Yên tĩnh",
-    "student_activity": "Hoạt động sinh viên",
-    "service_balance": "Cân bằng dịch vụ",
+    "quietness": "Yên tĩnh ước lượng",
 }
 
 MODE_LABELS = {
@@ -36,167 +36,43 @@ MODE_LABELS = {
     "far": "Xa hơn",
 }
 
-DISTANCE_CRITERIA = {"school", "hospital", "grocery", "park"}
+DISTANCE_CRITERIA = {
+    "school",
+    "university",
+    "hospital",
+    "pharmacy",
+    "grocery",
+    "park",
+}
 COUNT_CRITERIA = {"food", "services", "shopping", "transport"}
 
 PROFILES = {
     "Sinh viên": {
-        "food": {"weight": 5, "mode": "more", "limit": 10},
-        "services": {"weight": 2, "mode": "more", "limit": 10},
-        "shopping": {"weight": 3, "mode": "more", "limit": 10},
-        "hospital": {"weight": 1, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 3, "mode": "near", "limit": 1000},
-        "park": {"weight": 1, "mode": "near", "limit": 2000},
-        "transport": {"weight": 5, "mode": "more", "limit": 15},
-        "quietness": {"weight": 2, "mode": "less", "limit": 0.8},
-        "student_activity": {"weight": 5, "mode": "more", "limit": 0.8},
-        "service_balance": {"weight": 2, "mode": "more", "limit": 0.8},
+        "food": {"weight": 3, "mode": "more", "limit": 6},
+        "services": {"weight": 2, "mode": "more", "limit": 8},
+        "university": {"weight": 5, "mode": "near", "limit": 1500},
+        "grocery": {"weight": 3, "mode": "near", "limit": 1200},
+        "transport": {"weight": 4, "mode": "more", "limit": 15},
+        "quietness": {"weight": 1, "mode": "less", "limit": 1},
     },
     "Người đi làm": {
-        "food": {
-            "weight": 3,
-            "mode": "target",
-            "min": 2,
-            "max": 10,
-        },
-        "services": {"weight": 5, "mode": "more", "limit": 10},
-        "shopping": {"weight": 3, "mode": "more", "limit": 10},
-        "hospital": {"weight": 2, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 3, "mode": "near", "limit": 1000},
-        "park": {"weight": 2, "mode": "near", "limit": 2000},
-        "transport": {"weight": 5, "mode": "more", "limit": 15},
-        "quietness": {"weight": 2, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 1, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 5, "mode": "more", "limit": 0.8},
-    },
-    "Gia đình có con": {
-        "food": {
-            "weight": 2,
-            "mode": "target",
-            "min": 1,
-            "max": 8,
-        },
-        "services": {"weight": 4, "mode": "more", "limit": 10},
-        "shopping": {"weight": 2, "mode": "more", "limit": 10},
-        "school": {"weight": 5, "mode": "near", "limit": 1500},
-        "hospital": {"weight": 4, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 5, "mode": "near", "limit": 1000},
-        "park": {"weight": 4, "mode": "near", "limit": 2000},
-        "transport": {"weight": 3, "mode": "more", "limit": 15},
-        "quietness": {"weight": 5, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 3, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 4, "mode": "more", "limit": 0.8},
+        "food": {"weight": 2, "mode": "target", "min": 1, "max": 6},
+        "services": {"weight": 4, "mode": "more", "limit": 8},
+        "shopping": {"weight": 2, "mode": "target", "min": 0, "max": 8},
+        "hospital": {"weight": 1, "mode": "near", "limit": 2500},
+        "pharmacy": {"weight": 1, "mode": "near", "limit": 1500},
+        "grocery": {"weight": 3, "mode": "near", "limit": 1200},
+        "transport": {"weight": 4, "mode": "more", "limit": 15},
+        "quietness": {"weight": 2, "mode": "more", "limit": 1},
     },
     "Người cao tuổi": {
-        "food": {
-            "weight": 2,
-            "mode": "target",
-            "min": 1,
-            "max": 6,
-        },
-        "services": {"weight": 5, "mode": "more", "limit": 10},
-        "shopping": {"weight": 1, "mode": "more", "limit": 10},
+        "food": {"weight": 1, "mode": "target", "min": 0, "max": 4},
         "hospital": {"weight": 5, "mode": "near", "limit": 1500},
-        "grocery": {"weight": 5, "mode": "near", "limit": 800},
-        "park": {"weight": 4, "mode": "near", "limit": 1000},
-        "transport": {"weight": 2, "mode": "more", "limit": 15},
-        "quietness": {"weight": 5, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 4, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 5, "mode": "more", "limit": 0.8},
-    },
-    "Làm việc tại nhà": {
-        "food": {"weight": 3, "mode": "target", "min": 1, "max": 6},
-        "services": {"weight": 4, "mode": "more", "limit": 8},
-        "shopping": {"weight": 2, "mode": "target", "min": 1, "max": 6},
-        "hospital": {"weight": 2, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 4, "mode": "near", "limit": 800},
-        "park": {"weight": 4, "mode": "near", "limit": 1200},
-        "transport": {"weight": 1, "mode": "more", "limit": 15},
-        "quietness": {"weight": 5, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 4, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 4, "mode": "more", "limit": 0.8},
-    },
-    "Thích yên tĩnh": {
-        "food": {"weight": 4, "mode": "target", "min": 0, "max": 4},
-        "services": {"weight": 3, "mode": "target", "min": 1, "max": 6},
-        "shopping": {"weight": 3, "mode": "less", "limit": 8},
-        "hospital": {"weight": 2, "mode": "near", "limit": 2500},
+        "pharmacy": {"weight": 5, "mode": "near", "limit": 1000},
         "grocery": {"weight": 4, "mode": "near", "limit": 1000},
-        "park": {"weight": 5, "mode": "near", "limit": 1000},
-        "transport": {"weight": 2, "mode": "target", "min": 4, "max": 12},
-        "quietness": {"weight": 5, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 5, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 3, "mode": "more", "limit": 0.8},
-    },
-    "Thích sôi động": {
-        "food": {"weight": 5, "mode": "more", "limit": 10},
-        "services": {"weight": 5, "mode": "more", "limit": 10},
-        "shopping": {"weight": 4, "mode": "more", "limit": 10},
-        "grocery": {"weight": 2, "mode": "near", "limit": 1000},
-        "park": {"weight": 1, "mode": "near", "limit": 2000},
-        "transport": {"weight": 5, "mode": "more", "limit": 15},
-        "quietness": {"weight": 5, "mode": "less", "limit": 0.8},
-        "student_activity": {"weight": 3, "mode": "more", "limit": 0.8},
-        "service_balance": {"weight": 4, "mode": "more", "limit": 0.8},
-    },
-    "Ưu tiên sức khỏe": {
-        "food": {"weight": 2, "mode": "target", "min": 1, "max": 6},
-        "services": {"weight": 4, "mode": "more", "limit": 8},
-        "hospital": {"weight": 5, "mode": "near", "limit": 1000},
-        "grocery": {"weight": 5, "mode": "near", "limit": 700},
-        "park": {"weight": 5, "mode": "near", "limit": 800},
-        "transport": {"weight": 2, "mode": "more", "limit": 15},
-        "quietness": {"weight": 4, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 3, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 4, "mode": "more", "limit": 0.8},
-    },
-    "Yêu ẩm thực": {
-        "food": {"weight": 5, "mode": "target", "min": 4, "max": 15},
-        "services": {"weight": 2, "mode": "more", "limit": 10},
-        "shopping": {"weight": 2, "mode": "more", "limit": 10},
-        "hospital": {"weight": 1, "mode": "near", "limit": 2500},
-        "grocery": {"weight": 3, "mode": "near", "limit": 1000},
-        "transport": {"weight": 4, "mode": "more", "limit": 15},
-        "quietness": {"weight": 2, "mode": "less", "limit": 0.8},
-        "student_activity": {"weight": 2, "mode": "more", "limit": 0.8},
-        "service_balance": {"weight": 3, "mode": "more", "limit": 0.8},
-    },
-    "Ưu tiên mua sắm": {
-        "food": {"weight": 3, "mode": "more", "limit": 10},
-        "services": {"weight": 4, "mode": "more", "limit": 10},
-        "shopping": {"weight": 5, "mode": "more", "limit": 10},
-        "hospital": {"weight": 1, "mode": "near", "limit": 2500},
-        "grocery": {"weight": 3, "mode": "near", "limit": 800},
-        "park": {"weight": 1, "mode": "near", "limit": 2000},
-        "transport": {"weight": 5, "mode": "more", "limit": 15},
-        "quietness": {"weight": 2, "mode": "less", "limit": 0.8},
-        "student_activity": {"weight": 1, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 4, "mode": "more", "limit": 0.8},
-    },
-    "Ưu tiên công viên": {
-        "food": {"weight": 2, "mode": "target", "min": 1, "max": 6},
-        "services": {"weight": 3, "mode": "more", "limit": 8},
-        "shopping": {"weight": 1, "mode": "more", "limit": 10},
-        "hospital": {"weight": 2, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 4, "mode": "near", "limit": 800},
-        "park": {"weight": 5, "mode": "near", "limit": 600},
-        "transport": {"weight": 2, "mode": "more", "limit": 15},
-        "quietness": {"weight": 5, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 3, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 3, "mode": "more", "limit": 0.8},
-    },
-    "Tiện nghi cân bằng": {
-        "food": {"weight": 4, "mode": "target", "min": 2, "max": 10},
-        "services": {"weight": 4, "mode": "target", "min": 2, "max": 10},
-        "shopping": {"weight": 4, "mode": "target", "min": 2, "max": 10},
-        "school": {"weight": 2, "mode": "near", "limit": 2000},
-        "hospital": {"weight": 3, "mode": "near", "limit": 2000},
-        "grocery": {"weight": 4, "mode": "near", "limit": 1000},
-        "park": {"weight": 3, "mode": "near", "limit": 1500},
-        "transport": {"weight": 4, "mode": "target", "min": 6, "max": 18},
-        "quietness": {"weight": 3, "mode": "more", "limit": 0.8},
-        "student_activity": {"weight": 2, "mode": "less", "limit": 0.8},
-        "service_balance": {"weight": 5, "mode": "more", "limit": 0.8},
+        "park": {"weight": 4, "mode": "near", "limit": 1500},
+        "transport": {"weight": 3, "mode": "target", "min": 4, "max": 12},
+        "quietness": {"weight": 5, "mode": "more", "limit": 1},
     },
 }
 
@@ -319,15 +195,22 @@ def select_candidates(result, limit, minimum_distance_m):
     return candidates.loc[selected]
 
 
-def score_color(score):
-    red, green, blue, _ = mpl.colormaps["YlOrRd"](float(score))
+def score_color(score, low, high):
+    normalized = (score - low) / (high - low) if high > low else 1
+    color_position = 0.1 + 0.8 * np.clip(normalized, 0, 1)
+    red, green, blue, _ = mpl.colormaps["YlOrRd"](color_position)
     return [int(red * 255), int(green * 255), int(blue * 255), 190]
 
 
 def map_deck(result, candidates, scope, score_columns):
     columns = ["cell_id", "suitability_score", *score_columns, "geometry"]
-    cells = result[result["recommended"]][columns].copy().to_crs(4326)
-    cells["fill_color"] = cells["suitability_score"].map(score_color)
+    cells = result[result["recommended"]][columns].copy()
+    low = cells["suitability_score"].quantile(0.05)
+    high = cells["suitability_score"].quantile(0.95)
+    cells["fill_color"] = cells["suitability_score"].map(
+        lambda score: score_color(score, low, high)
+    )
+    cells = cells.to_crs(4326)
 
     def tooltip(row):
         details = "".join(
@@ -432,7 +315,7 @@ scope = st.sidebar.radio(
     "Phạm vi bản đồ",
     ["Trung tâm Hà Nội", "Toàn khu vực"],
 )
-top_percent = st.sidebar.slider("Tỷ lệ khu vực nổi bật (%)", 5, 30, 10, 5)
+top_percent = st.sidebar.slider("Tỷ lệ khu vực nổi bật (%)", 5, 20, 10, 5)
 candidate_limit = st.sidebar.slider("Số khu vực đề xuất", 5, 20, 10)
 minimum_distance = st.sidebar.slider(
     "Khoảng cách giữa đề xuất (m)",
@@ -447,7 +330,6 @@ preferences = preference_controls(profile)
 
 result = model.evaluate(
     preferences,
-    top_quantile=1 - top_percent / 100,
 )
 
 if scope == "Trung tâm Hà Nội":
@@ -455,6 +337,13 @@ if scope == "Trung tâm Hà Nội":
     visible_result = result.cx[xmin:xmax, ymin:ymax]
 else:
     visible_result = result
+
+visible_result = visible_result.copy()
+highlight_count = max(1, int(len(visible_result) * top_percent / 100))
+highlighted_index = visible_result["suitability_score"].nlargest(
+    highlight_count
+).index
+visible_result["recommended"] = visible_result.index.isin(highlighted_index)
 
 candidates = select_candidates(
     visible_result,
@@ -477,6 +366,13 @@ score_columns = [
 ]
 
 if recommended_count:
+    highlighted_scores = visible_result.loc[
+        visible_result["recommended"], "suitability_score"
+    ]
+    st.caption(
+        "Heatmap dùng điểm gốc của từng cell: vàng sáng → đỏ, "
+        f"từ {highlighted_scores.min():.3f} đến {highlighted_scores.max():.3f}."
+    )
     deck = map_deck(visible_result, candidates, scope, score_columns)
     st.pydeck_chart(
         deck,

@@ -5,19 +5,27 @@ import numpy as np
 import pandas as pd
 
 
+ACTIVITY_COLUMNS = [
+    "food_and_drink_count_500m",
+    "shopping_count_500m",
+    "arts_and_entertainment_count_500m",
+    "sports_and_recreation_count_500m",
+    "travel_and_transportation_count_500m",
+]
+
 # name: source column, default mode, default limit
 CRITERIA = {
-    "food": ("food_and_drink_count_200m", "more", 10),
-    "services": ("services_and_business_count_200m", "more", 10),
+    "food": ("food_and_drink_count_200m", "more", 6),
+    "services": ("services_and_business_count_200m", "more", 8),
     "shopping": ("shopping_count_200m", "more", 10),
     "school": ("nearest_school_m", "near", 1500),
+    "university": ("nearest_college_university_m", "near", 1500),
     "hospital": ("nearest_hospital_m", "near", 2000),
+    "pharmacy": ("nearest_pharmacy_m", "near", 1000),
     "grocery": ("nearest_grocery_store_m", "near", 1000),
     "park": ("nearest_park_m", "near", 2000),
     "transport": ("road_density_1000m_km_per_km2", "more", 15),
-    "quietness": (None, "more", 0.8),
-    "student_activity": (None, "less", 0.8),
-    "service_balance": (None, "more", 0.8),
+    "quietness": (None, "more", 1),
 }
 
 
@@ -33,41 +41,17 @@ def _near(values, distance):
     return np.exp(-np.log(2) * _number(values) / distance)
 
 
-def _build_values(features):
-    values = pd.DataFrame(
-        {
-            name: _number(features[column])
-            for name, (column, _, _) in CRITERIA.items()
-            if column
-        }
-    )
-    education = _number(features["education_count_200m"])
+def _quantile_scale(values, quantile=0.95):
+    values = _number(values)
+    limit = values.quantile(quantile)
+    return (values / limit).clip(upper=1) if limit > 0 else values
 
-    intensity = pd.concat(
-        [
-            _more(values["food"], 10),
-            _more(values["services"], 10),
-            _more(values["shopping"], 10),
-            _more(education, 3),
-            _more(values["transport"], 15),
-        ],
-        axis=1,
-    ).mean(axis=1)
-    values["quietness"] = 1 - intensity
 
-    values["student_activity"] = (
-        0.7 * _near(features["nearest_college_university_m"], 1500)
-        + 0.2 * _near(features["nearest_language_school_m"], 1000)
-        + 0.1 * _more(education, 3)
-    )
-
-    local_pois = values[["food", "services", "shopping"]].sum(axis=1)
-    service_share = values["services"] / local_pois.replace(0, np.nan)
-    values["service_balance"] = np.sqrt(
-        _more(values["services"], 10)
-        * _more(service_share.fillna(0), 0.4)
-    )
-    return values
+def _quietness(features):
+    activity = features[ACTIVITY_COLUMNS].apply(_number).sum(axis=1)
+    activity_level = _quantile_scale(activity)
+    road_level = _quantile_scale(features["road_density_500m_km_per_km2"])
+    return np.sqrt((1 - activity_level) * (1 - road_level))
 
 
 def _score(values, mode, limit, options):
@@ -93,7 +77,14 @@ def _score(values, mode, limit, options):
 class SuitabilityModel:
     def __init__(self, features):
         self.features = features
-        self.values = _build_values(features)
+        self.values = pd.DataFrame(
+            {
+                name: _number(features[column])
+                for name, (column, _, _) in CRITERIA.items()
+                if column
+            }
+        )
+        self.values["quietness"] = _quietness(features)
 
     @classmethod
     def from_parquet(cls, path: str | Path):
