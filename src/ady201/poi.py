@@ -30,7 +30,6 @@ def get_pois(boundary):
         ],
     ).to_crs(4326)
     pois = gpd.clip(pois, boundary).reset_index(drop=True)
-    pois = pois[pois["operating_status"].fillna("") != "permanently_closed"].copy()
     pois["category_group"] = pois["category_hierarchy"].str[0].fillna(
         "unclassified"
     )
